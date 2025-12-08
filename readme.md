@@ -1,16 +1,97 @@
-# Garage Management System
+# 🚗 Screw Dheela Management System
 
-A Web Application for Appointments, Jobs, Billing, Communication, and Notification Management
+A comprehensive auto garage management system with separate portals for customers and staff. Built with PHP, MySQL, Bootstrap, and Docker.
+
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![PHP](https://img.shields.io/badge/PHP-8.1-777BB4?logo=php)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3-7952B3?logo=bootstrap)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker Desktop
+- 5 minutes of your time ⏱️
+
+### Installation
+
+1. **Navigate to the project:**
+   ```powershell
+   cd C:\xampp\htdocs\garage_system
+   ```
+
+2. **Start all services:**
+   ```powershell
+   docker compose up -d --build
+   ```
+
+3. **Wait 15 seconds, then seed the database:**
+   ```powershell
+   docker compose exec db mysql -u root -proot_password_change_me -e "CREATE DATABASE IF NOT EXISTS garage_db;"
+   docker compose exec db mysql -u root -proot_password_change_me garage_db -e "SOURCE /docker-entrypoint-initdb.d/seed.sql;"
+   ```
+
+4. **Access the application:**
+   - **Landing Page:** http://localhost:8080/garage_system/public/welcome.php
+   - **phpMyAdmin:** http://localhost:8081
+
+---
+
+## 🔑 Default Login Credentials
+
+### Staff Account
+- **Username:** `admin_user`
+- **Password:** `staffpass`
+- **URL:** http://localhost:8080/garage_system/public/staff_login.php
+
+### Customer Accounts
+- **Email:** `alice@example.com` or `bob@example.com`
+- **Password:** `staffpass`
+- **URL:** http://localhost:8080/garage_system/public/customer_login.php
+
+---
+
+## 📚 Complete Documentation
+
+- **[SETUP_GUIDE.md](SETUP_GUIDE.md)** - Detailed setup, troubleshooting, and development workflow
+- **[PROJECT_COMPLETE.md](PROJECT_COMPLETE.md)** - Complete feature list and technical documentation
+
+---
+
+## 🌟 Features
+
+### 👥 Customer Portal (Green Theme)
+- ✅ User registration and authentication
+- ✅ Vehicle management (add, edit, delete)
+- ✅ Appointment booking with calendar
+- ✅ View service history
+- ✅ Bill and invoice viewing with print
+- ✅ Real-time chat with staff
+- ✅ Responsive dashboard
+
+### 👨‍💼 Staff Portal (Blue Theme)
+- ✅ Secure staff authentication
+- ✅ Customer management
+- ✅ Appointment scheduling
+- ✅ Job/service tracking
+- ✅ Invoice generation
+- ✅ Customer messaging system
+- ✅ Analytics dashboard
+
+---
 
 ## Project Overview
 
-The Garage Management System is a web-based application designed to digitalize and streamline the daily operations of a car or motorcycle service garage. Many garages currently rely on manual, paper-based methods to record appointments, track vehicle repairs, and generate bills. These approaches often result in inefficiency, data loss, and errors.
+The Screw Dheela Management System is a web-based application designed to digitalize and streamline the daily operations of a car or motorcycle service garage. Many garages currently rely on manual, paper-based methods to record appointments, track vehicle repairs, and generate bills. These approaches often result in inefficiency, data loss, and errors.
 
 This system replaces traditional paper tracking with an organized digital platform developed using PHP, HTML, CSS, and MySQL within a XAMPP environment. It also satisfies the academic requirements for designing and implementing a multi-table relational database.
 
 ## Purpose of the Project
 
-The main purpose of this project is to provide a central system that manages the entire workflow of a service garage. The system allows users to:
+The main purpose of this project is to provide a central system that manages the entire workflow of Screw Dheela service garage. The system allows users to:
 
 * Register and manage customer information
 * Store details of multiple vehicles per customer
@@ -22,7 +103,7 @@ The main purpose of this project is to provide a central system that manages the
 * Communicate through a built-in chat module
 * Send notifications and reminders via the application and email
 
-The system offers a unified and organized way to manage garage operations, reducing manual errors, improving efficiency, and making data retrieval easier.
+The system offers a unified and organized way to manage Screw Dheela operations, reducing manual errors, improving efficiency, and making data retrieval easier.
 
 ## Key Features
 
@@ -51,7 +132,7 @@ The system offers a unified and organized way to manage garage operations, reduc
 
 ### 5. Service Catalog
 
-* Maintain a list of services offered by the garage
+* Maintain a list of services offered by Screw Dheela
 * Set base prices for each service
 
 ### 6. Billing System
@@ -204,4 +285,4 @@ garage_system/
 
 ## Conclusion
 
-The Garage Management System demonstrates the application of database design, server-side programming, authentication, communication systems, and notification workflows within a well-structured multi-user environment. The system efficiently supports the daily operations of an automotive service garage and provides a strong foundation for real-world digital management solutions.
+The Screw Dheela Management System demonstrates the application of database design, server-side programming, authentication, communication systems, and notification workflows within a well-structured multi-user environment. The system efficiently supports the daily operations of Screw Dheela automotive service garage and provides a strong foundation for real-world digital management solutions.

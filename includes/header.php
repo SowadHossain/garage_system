@@ -8,7 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Garage Management System</title>
+    <title>Screw Dheela Management System</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap CSS (CDN) -->
     <link
@@ -18,9 +18,9 @@ if (session_status() === PHP_SESSION_NONE) {
     <link rel="stylesheet" href="/garage_system/assets/css/style.css">
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
     <div class="container-fluid">
-        <a class="navbar-brand" href="/garage_system/public/index.php">Garage System</a>
+        <a class="navbar-brand" href="/garage_system/public/index.php">Screw Dheela</a>
 
         <?php if (!empty($_SESSION['staff_id'])): ?>
             <div class="d-flex">

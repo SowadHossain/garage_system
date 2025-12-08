@@ -1,0 +1,66 @@
+services:
+  app:
+    build: .
+    container_name: garage_app
+    ports:
+      - '8080:80'
+    environment:
+      # These are read by config/db.php in the app
+      DB_HOST: db
+      DB_NAME: garage_db
+      DB_USER: garage_user
+      DB_PASSWORD: GaragePass123!
+    volumes:
+      # Mount project into /var/www/html/garage_system so app paths remain the same
+      - ./:/var/www/html/garage_system:cached
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - garage_net
+
+  db:
+    image: mysql:8.0
+    container_name: garage_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_change_me
+      MYSQL_DATABASE: garage_db
+      MYSQL_USER: garage_user
+      MYSQL_PASSWORD: GaragePass123!
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docker/mysql/init/:/docker-entrypoint-initdb.d/:ro
+    ports:
+      - '3306:3306'
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - garage_net
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: garage_phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: garage_user
+      PMA_PASSWORD: GaragePass123!
+    ports:
+      - '8081:80'
+    depends_on:
+      - db
+    networks:
+      - garage_net
+
+volumes:
+  db_data:
+
+networks:
+  garage_net:
+    driver: bridge

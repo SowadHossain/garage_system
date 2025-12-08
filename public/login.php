@@ -1,15 +1,8 @@
 <?php
-// public/login.php
+// public/login.php - Redirect to welcome page
 
-session_start();
-
-require_once __DIR__ . "/../config/db.php";
-
-// If already logged in, go to dashboard
-if (!empty($_SESSION['staff_id'])) {
-    header("Location: index.php");
-    exit;
-}
+header("Location: welcome.php");
+exit;
 
 $error = "";
 
@@ -51,39 +44,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <?php include __DIR__ . "/../includes/header.php"; ?>
 
-<div class="row justify-content-center">
-    <div class="col-md-4">
-        <h3 class="mb-3">Staff Login</h3>
-
-        <?php if ($error): ?>
-            <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
-        <?php endif; ?>
-
-        <form method="post" action="login.php">
-            <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input
-                    type="text"
-                    name="username"
-                    id="username"
-                    class="form-control"
-                    required
-                >
+<div class="container-fluid min-vh-100 d-flex align-items-center justify-content-center">
+    <div class="card shadow-sm" style="width: 420px;">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <h2 class="h4 mb-1">Screw Dheela Management System</h2>
+                <div class="text-muted">Staff sign in</div>
             </div>
 
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input
-                    type="password"
-                    name="password"
-                    id="password"
-                    class="form-control"
-                    required
-                >
-            </div>
+            <?php if ($error): ?>
+                <div class="alert alert-danger" role="alert"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
 
-            <button type="submit" class="btn btn-primary w-100">Login</button>
-        </form>
+            <form method="post" action="login.php" novalidate>
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" name="username" id="username" class="form-control" placeholder="Enter your username" required autofocus>
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" name="password" id="password" class="form-control" placeholder="Enter your password" required>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="1" id="remember" name="remember">
+                        <label class="form-check-label" for="remember">Remember me</label>
+                    </div>
+                    <a href="#" class="small">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">Sign in</button>
+            </form>
+
+            <div class="text-center mt-3 small text-muted">
+                Need an account? Ask the admin to create one or run <code>create_admin.php</code>.
+            </div>
+        </div>
     </div>
 </div>
 
