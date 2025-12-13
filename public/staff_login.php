@@ -37,7 +37,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['staff_name'] = $staff['name'];
                 $_SESSION['staff_role'] = $staff['role'];
 
-                header("Location: staff_dashboard.php");
+                // Redirect to role-specific dashboard
+                $redirect_url = match($staff['role']) {
+                    'admin' => 'admin_dashboard.php',
+                    'receptionist' => 'receptionist_dashboard.php',
+                    'mechanic' => 'mechanic_dashboard.php',
+                    default => 'staff_dashboard.php'
+                };
+                
+                header("Location: " . $redirect_url);
                 exit;
             } else {
                 $error = "Invalid username or password.";

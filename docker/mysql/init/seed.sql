@@ -6,8 +6,9 @@ USE garage_db;
 
 -- Add staff accounts (id chosen to avoid colliding with create_admin.php)
 -- Login credentials for Admin: username = 'admin_user', password = 'staffpass'
+-- Hash generated with: password_hash('staffpass', PASSWORD_BCRYPT)
 INSERT INTO staff (staff_id, name, role, username, email, password_hash, is_email_verified, active, created_at)
-VALUES (1000, 'Admin User', 'admin', 'admin_user', 'admin@example.com', '$2y$10$QY05j2FE31Am7yuPi0mIhOILHkCwfPeI6cM7tit8dWiqQcVk0gug6', 1, 1, NOW())
+VALUES (1000, 'Admin User', 'admin', 'admin_user', 'admin@example.com', '$2y$10$n7g9sSWqnGqP6z89S4RZSuob7nIuH3dsccRXkzNw.C2qjB5AwOxCa', 1, 1, NOW())
 ON DUPLICATE KEY UPDATE 
     name = VALUES(name),
     role = VALUES(role),
@@ -19,8 +20,9 @@ ON DUPLICATE KEY UPDATE
     created_at = VALUES(created_at);
 
 -- Login credentials for Receptionist: username = 'receptionist_user', password = 'staffpass'
+-- Hash generated with: password_hash('staffpass', PASSWORD_BCRYPT)
 INSERT INTO staff (staff_id, name, role, username, email, password_hash, is_email_verified, active, created_at)
-VALUES (1001, 'Sarah Reception', 'receptionist', 'receptionist_user', 'reception@example.com', '$2y$10$QY05j2FE31Am7yuPi0mIhOILHkCwfPeI6cM7tit8dWiqQcVk0gug6', 1, 1, NOW())
+VALUES (1001, 'Sarah Reception', 'receptionist', 'receptionist_user', 'reception@example.com', '$2y$10$n7g9sSWqnGqP6z89S4RZSuob7nIuH3dsccRXkzNw.C2qjB5AwOxCa', 1, 1, NOW())
 ON DUPLICATE KEY UPDATE 
     name = VALUES(name),
     role = VALUES(role),
@@ -31,8 +33,9 @@ ON DUPLICATE KEY UPDATE
     active = VALUES(active);
 
 -- Login credentials for Mechanic: username = 'mechanic_user', password = 'staffpass'
+-- Hash generated with: password_hash('staffpass', PASSWORD_BCRYPT)
 INSERT INTO staff (staff_id, name, role, username, email, password_hash, is_email_verified, active, created_at)
-VALUES (1002, 'Mike Mechanic', 'mechanic', 'mechanic_user', 'mechanic@example.com', '$2y$10$QY05j2FE31Am7yuPi0mIhOILHkCwfPeI6cM7tit8dWiqQcVk0gug6', 1, 1, NOW())
+VALUES (1002, 'Mike Mechanic', 'mechanic', 'mechanic_user', 'mechanic@example.com', '$2y$10$n7g9sSWqnGqP6z89S4RZSuob7nIuH3dsccRXkzNw.C2qjB5AwOxCa', 1, 1, NOW())
 ON DUPLICATE KEY UPDATE 
     name = VALUES(name),
     role = VALUES(role),
@@ -45,10 +48,11 @@ ON DUPLICATE KEY UPDATE
 -- Add a couple of customers
 -- Login credentials for Alice: email = 'alice@example.com', password = 'customer123'
 -- Login credentials for Bob: email = 'bob@example.com', password = 'customer123'
+-- Hash generated with: password_hash('customer123', PASSWORD_BCRYPT)
 INSERT INTO customers (customer_id, name, phone, email, address, password_hash, is_email_verified, created_at)
 VALUES
-  (2000, 'Alice Johnson', '+15551230001', 'alice@example.com', '123 Main St', '$2y$10$QY05j2FE31Am7yuPi0mIhOILHkCwfPeI6cM7tit8dWiqQcVk0gug6', 1, NOW()),
-  (2001, 'Bob Smith', '+15551230002', 'bob@example.com', '456 Oak Ave', '$2y$10$QY05j2FE31Am7yuPi0mIhOILHkCwfPeI6cM7tit8dWiqQcVk0gug6', 0, NOW())
+  (2000, 'Alice Johnson', '+15551230001', 'alice@example.com', '123 Main St', '$2y$10$qeGgjIa6NSUWF/uZYC32we/sL4zMBGnkCx3WqmsnUIDQZuHDBaefK', 1, NOW()),
+  (2001, 'Bob Smith', '+15551230002', 'bob@example.com', '456 Oak Ave', '$2y$10$qeGgjIa6NSUWF/uZYC32we/sL4zMBGnkCx3WqmsnUIDQZuHDBaefK', 0, NOW())
 ON DUPLICATE KEY UPDATE 
     name = VALUES(name),
     phone = VALUES(phone),

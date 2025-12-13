@@ -10,6 +10,53 @@ if (!isset($_SESSION['staff_id']) || $_SESSION['staff_role'] !== 'admin') {
 
 $page_title = 'Super Admin Dashboard';
 require_once '../includes/header.php';
+?>
+
+<style>
+    /* Admin-specific blue theme styling */
+    :root {
+        --admin-primary: #0d6efd;
+        --admin-dark: #0a58ca;
+        --admin-light: #cfe2ff;
+    }
+    
+    body {
+        background: #f0f4ff;
+    }
+    
+    .container-fluid {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    h2 i, .card-header {
+        color: var(--admin-primary);
+    }
+    
+    .card {
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(13,110,253,0.08);
+        margin-bottom: 1.5rem;
+        border: 1px solid #e7f1ff;
+    }
+    
+    .card-header.bg-primary {
+        background: linear-gradient(135deg, var(--admin-primary), var(--admin-dark)) !important;
+    }
+    
+    .btn-success, .btn-info, .btn-warning {
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .btn-success:hover, .btn-info:hover, .btn-warning:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+</style>
+
+<?php
 
 // Get comprehensive statistics
 $total_customers = $conn->query("SELECT COUNT(*) as count FROM customers")->fetch_assoc()['count'];
