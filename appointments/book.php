@@ -18,7 +18,7 @@ $error = "";
 $success = "";
 
 // Fetch customer vehicles
-$vehicles_stmt = $conn->prepare("SELECT * FROM vehicles WHERE customer_id = ? ORDER BY created_at DESC");
+$vehicles_stmt = $conn->prepare("SELECT vehicle_id, registration_no, brand, model, year, vehicle_type FROM vehicles WHERE customer_id = ? ORDER BY vehicle_id DESC");
 $vehicles_stmt->bind_param("i", $customer_id);
 $vehicles_stmt->execute();
 $vehicles = $vehicles_stmt->get_result()->fetch_all(MYSQLI_ASSOC);

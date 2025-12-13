@@ -46,9 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Insert vehicle
             $insert_stmt = $conn->prepare("INSERT INTO vehicles 
-                (customer_id, registration_no, brand, model, year, vehicle_type, color, vin, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-            $insert_stmt->bind_param("isssisss", $customer_id, $registration_no, $brand, $model, $year, $vehicle_type, $color, $vin);
+                (customer_id, registration_no, brand, model, year, vehicle_type) 
+                VALUES (?, ?, ?, ?, ?, ?)");
+            $insert_stmt->bind_param("isssis", $customer_id, $registration_no, $brand, $model, $year, $vehicle_type);
             
             if ($insert_stmt->execute()) {
                 $vehicle_id = $insert_stmt->insert_id;

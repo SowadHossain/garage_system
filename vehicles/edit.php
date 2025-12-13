@@ -19,7 +19,7 @@ $error = "";
 $success = "";
 
 // Fetch vehicle details
-$stmt = $conn->prepare("SELECT vehicle_id, registration_no, brand, model, year, vehicle_type, color, vin 
+$stmt = $conn->prepare("SELECT vehicle_id, registration_no, brand, model, year, vehicle_type 
                         FROM vehicles 
                         WHERE vehicle_id = ? AND customer_id = ? 
                         LIMIT 1");
@@ -64,10 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Update vehicle
             $update_stmt = $conn->prepare("UPDATE vehicles 
-                                          SET registration_no = ?, brand = ?, model = ?, year = ?, 
-                                              vehicle_type = ?, color = ?, vin = ?
+                                          SET registration_no = ?, brand = ?, model = ?, year = ?, vehicle_type = ?
                                           WHERE vehicle_id = ? AND customer_id = ?");
-            $update_stmt->bind_param("sssssssii", $registration_no, $brand, $model, $year, $vehicle_type, $color, $vin, $vehicle_id, $customer_id);
+            $update_stmt->bind_param("sssisii", $registration_no, $brand, $model, $year, $vehicle_type, $vehicle_id, $customer_id);
             
             if ($update_stmt->execute()) {
                 $update_stmt->close();
@@ -86,8 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $vehicle['model'] = $model;
     $vehicle['year'] = $year;
     $vehicle['vehicle_type'] = $vehicle_type;
-    $vehicle['color'] = $color;
-    $vehicle['vin'] = $vin;
+    // color and vin are not currently stored in the schema
 }
 ?>
 <!DOCTYPE html>

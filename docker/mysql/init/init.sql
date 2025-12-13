@@ -256,3 +256,85 @@ CREATE TABLE IF NOT EXISTS email_queue (
     sent_at        DATETIME NULL,
     status         VARCHAR(20) DEFAULT 'queued' -- queued/sent/failed
 ) ENGINE=InnoDB;
+
+-- =========================================================
+--  VIEWS for simplified data retrieval
+-- =========================================================
+
+-- Customer summary with aggregates (demonstrates SUM, COUNT, GROUP BY)
+CREATE OR REPLACE VIEW view_customer_summary AS
+SELECT 
+    c.customer_id,
+    c.name,
+    c.email,
+    c.phone,
+    c.address,
+    COUNT(DISTINCT v.vehicle_id) as vehicle_count,
+    COUNT(DISTINCT a.appointment_id) as appointment_count,
+    COUNT(DISTINCT CASE WHEN a.status = 'completed' THEN a.appointment_id END) as completed_appointments,
+    COALESCE(SUM(b.total_amount), 0) as total_spent,
+    COALESCE(AVG(b.total_amount), 0) as avg_bill_amount,
+    MAX(a.appointment_datetime) as last_appointment_date
+FROM customers c
+LEFT JOIN vehicles v ON c.customer_id = v.customer_id
+LEFT JOIN appointments a ON c.customer_id = a.customer_id
+LEFT JOIN jobs j ON a.appointment_id = j.appointment_id
+LEFT JOIN bills b ON j.job_id = b.job_id
+GROUP BY c.customer_id, c.name, c.email, c.phone, c.address;
+
+-- Pending work overview (demonstrates multi-table joins)
+CREATE OR REPLACE VIEW view_pending_work AS
+SELECT 
+    a.appointment_id,
+    a.appointment_datetime,
+    a.problem_description,
+    a.status,
+    c.customer_id,
+    c.name as customer_name,
+    c.phone as customer_phone,
+    c.email as customer_email,
+    v.vehicle_id,
+    v.registration_no,
+    v.brand,
+    v.model,
+    v.year,
+    s.staff_id as assigned_staff_id,
+    s.name as assigned_staff_name
+FROM appointments a
+JOIN customers c ON a.customer_id = c.customer_id
+LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
+LEFT JOIN staff s ON a.created_by_staff_id = s.staff_id
+WHERE a.status IN ('booked', 'confirmed', 'pending');
+
+-- Revenue detail view (demonstrates complex joins)
+CREATE OR REPLACE VIEW view_revenue_detail AS
+SELECT 
+    b.bill_id,
+    b.bill_date,
+    b.total_amount,
+    b.subtotal,
+    b.tax_amount,
+    b.discount,
+    b.payment_status,
+    b.payment_method,
+    j.job_id,
+    j.job_date,
+    j.status as job_status,
+    a.appointment_id,
+    a.appointment_datetime,
+    c.customer_id,
+    c.name as customer_name,
+    c.email as customer_email,
+    c.phone as customer_phone,
+    v.vehicle_id,
+    v.registration_no,
+    v.brand,
+    v.model,
+    m.staff_id as mechanic_id,
+    m.name as mechanic_name
+FROM bills b
+JOIN jobs j ON b.job_id = j.job_id
+JOIN appointments a ON j.appointment_id = a.appointment_id
+JOIN customers c ON a.customer_id = c.customer_id
+LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
+LEFT JOIN staff m ON j.mechanic_id = m.staff_id;

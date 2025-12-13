@@ -40,13 +40,13 @@ $result = $conn->query("SELECT COUNT(*) as count FROM bills WHERE payment_status
 $stats['unpaid_bills'] = $result->fetch_assoc()['count'];
 
 // Get recent appointments
-$appointments_stmt = $conn->prepare("SELECT a.appointment_id, a.appointment_date, a.appointment_time, a.status, a.problem_description,
+$appointments_stmt = $conn->prepare("SELECT a.appointment_id, a.appointment_datetime, a.status, a.problem_description,
                                             c.name as customer_name, c.phone as customer_phone,
                                             v.registration_no, v.brand, v.model
                                      FROM appointments a
                                      JOIN customers c ON a.customer_id = c.customer_id
                                      LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
-                                     ORDER BY a.appointment_date DESC, a.appointment_time DESC
+                                     ORDER BY a.appointment_datetime DESC
                                      LIMIT 5");
 $appointments_stmt->execute();
 $recent_appointments = $appointments_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -555,8 +555,7 @@ $customers_stmt->close();
                                 <h3 class="customer-name"><?php echo htmlspecialchars($apt['customer_name']); ?></h3>
                                 <p class="appointment-date">
                                     <i class="bi bi-calendar3 me-1"></i>
-                                    <?php echo date('M d, Y', strtotime($apt['appointment_date'])); ?> at 
-                                    <?php echo date('g:i A', strtotime($apt['appointment_time'])); ?>
+                                    <?php $dt = new DateTime($apt['appointment_datetime']); echo $dt->format('M d, Y') . ' at ' . $dt->format('g:i A'); ?>
                                 </p>
                             </div>
                         </div>

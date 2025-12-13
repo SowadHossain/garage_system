@@ -4,8 +4,8 @@ USE garage_db;
 -- Screw Dheela Management System
 -- =========================
 
--- Add a staff account (id chosen to avoid colliding with create_admin.php)
--- Login credentials for staff: username = 'admin_user', password = 'staffpass'
+-- Add staff accounts (id chosen to avoid colliding with create_admin.php)
+-- Login credentials for Admin: username = 'admin_user', password = 'staffpass'
 INSERT INTO staff (staff_id, name, role, username, email, password_hash, is_email_verified, active, created_at)
 VALUES (1000, 'Admin User', 'admin', 'admin_user', 'admin@example.com', '$2y$10$QY05j2FE31Am7yuPi0mIhOILHkCwfPeI6cM7tit8dWiqQcVk0gug6', 1, 1, NOW())
 ON DUPLICATE KEY UPDATE 
@@ -17,6 +17,30 @@ ON DUPLICATE KEY UPDATE
     is_email_verified = VALUES(is_email_verified),
     active = VALUES(active),
     created_at = VALUES(created_at);
+
+-- Login credentials for Receptionist: username = 'receptionist_user', password = 'staffpass'
+INSERT INTO staff (staff_id, name, role, username, email, password_hash, is_email_verified, active, created_at)
+VALUES (1001, 'Sarah Reception', 'receptionist', 'receptionist_user', 'reception@example.com', '$2y$10$QY05j2FE31Am7yuPi0mIhOILHkCwfPeI6cM7tit8dWiqQcVk0gug6', 1, 1, NOW())
+ON DUPLICATE KEY UPDATE 
+    name = VALUES(name),
+    role = VALUES(role),
+    username = VALUES(username),
+    email = VALUES(email),
+    password_hash = VALUES(password_hash),
+    is_email_verified = VALUES(is_email_verified),
+    active = VALUES(active);
+
+-- Login credentials for Mechanic: username = 'mechanic_user', password = 'staffpass'
+INSERT INTO staff (staff_id, name, role, username, email, password_hash, is_email_verified, active, created_at)
+VALUES (1002, 'Mike Mechanic', 'mechanic', 'mechanic_user', 'mechanic@example.com', '$2y$10$QY05j2FE31Am7yuPi0mIhOILHkCwfPeI6cM7tit8dWiqQcVk0gug6', 1, 1, NOW())
+ON DUPLICATE KEY UPDATE 
+    name = VALUES(name),
+    role = VALUES(role),
+    username = VALUES(username),
+    email = VALUES(email),
+    password_hash = VALUES(password_hash),
+    is_email_verified = VALUES(is_email_verified),
+    active = VALUES(active);
 
 -- Add a couple of customers
 -- Login credentials for Alice: email = 'alice@example.com', password = 'customer123'

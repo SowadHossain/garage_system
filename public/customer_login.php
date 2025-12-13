@@ -14,7 +14,8 @@ if (!empty($_SESSION['customer_id'])) {
 $error = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
+    // Normalize email to lowercase to avoid case-sensitivity issues
+    $email = strtolower(trim($_POST['email'] ?? ''));
     $password = $_POST['password'] ?? '';
 
     if ($email === '' || $password === '') {
@@ -32,7 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($customer) {
             if (password_verify($password, $customer['password_hash'])) {
-                // Correct password
+                // Correct password - regenerate session id to prevent fixation
+                session_regenerate_id(true);
+
                 $_SESSION['customer_id']   = $customer['customer_id'];
                 $_SESSION['customer_name'] = $customer['name'];
                 $_SESSION['customer_email'] = $customer['email'];

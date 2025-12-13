@@ -60,6 +60,28 @@ RUN cat > /etc/apache2/sites-available/000-default.conf <<'EOF'
 EOF
 RUN a2enconf servername || true
 
+# Provide a simple root index that redirects to the application's public welcome page.
+# This keeps the repository layout (app under /garage_system/public) while making
+# http://localhost/ serve the app instead of returning Forbidden.
+RUN cat > /var/www/html/index.php <<'EOF'
+<?php
+// Redirect root to the app public welcome page
+header('Location: /garage_system/public/welcome.php');
+exit;
+?>
+EOF
+
+# Allow the container's /var/www/html directory to be served so the root
+# index.php we created is accessible (prevents 403 on '/').
+RUN cat > /etc/apache2/conf-available/allow-root.conf <<'EOF'
+<Directory /var/www/html>
+	Options Indexes FollowSymLinks
+	AllowOverride None
+	Require all granted
+</Directory>
+EOF
+RUN a2enconf allow-root || true
+
 EXPOSE 80
 
 CMD ["apache2-foreground"]
