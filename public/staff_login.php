@@ -4,6 +4,7 @@
 session_start();
 
 require_once __DIR__ . "/../config/db.php";
+require_once __DIR__ . "/../includes/activity_logger.php";
 
 // If already logged in as staff, go to dashboard
 if (!empty($_SESSION['staff_id'])) {
@@ -36,6 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['staff_id']   = $staff['staff_id'];
                 $_SESSION['staff_name'] = $staff['name'];
                 $_SESSION['staff_role'] = $staff['role'];
+                $_SESSION['staff_username'] = $username;
+
+                // Log successful login
+                logLoginAttempt($username, 'staff', true);
 
                 // Redirect to role-specific dashboard
                 $redirect_url = match($staff['role']) {
@@ -48,9 +53,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header("Location: " . $redirect_url);
                 exit;
             } else {
+                // Log failed login
+                logLoginAttempt($username, 'staff', false, 'Invalid password');
                 $error = "Invalid username or password.";
             }
         } else {
+            // Log failed login
+            logLoginAttempt($username, 'staff', false, $staff ? 'Account inactive' : 'User not found');
             $error = "Invalid username or password.";
         }
     }

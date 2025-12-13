@@ -4,6 +4,7 @@
 session_start();
 
 require_once __DIR__ . "/../config/db.php";
+require_once __DIR__ . "/../includes/activity_logger.php";
 
 // If already logged in as customer, go to customer dashboard
 if (!empty($_SESSION['customer_id'])) {
@@ -41,12 +42,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['customer_email'] = $customer['email'];
                 $_SESSION['customer_phone'] = $customer['phone'];
 
+                // Log successful login
+                logLoginAttempt($email, 'customer', true);
+
                 header("Location: customer_dashboard.php");
                 exit;
             } else {
+                // Log failed login
+                logLoginAttempt($email, 'customer', false, 'Invalid password');
                 $error = "Invalid email or password.";
             }
         } else {
+            // Log failed login
+            logLoginAttempt($email, 'customer', false, 'Email not found');
             $error = "Invalid email or password.";
         }
     }

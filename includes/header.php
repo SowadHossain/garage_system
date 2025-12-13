@@ -26,19 +26,36 @@ if (session_status() === PHP_SESSION_NONE) {
         </a>
 
         <?php if (!empty($_SESSION['staff_id'])): ?>
-            <div class="d-flex align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <!-- Notification Bell Widget -->
+                <?php include __DIR__ . '/notification_widget.php'; ?>
+                
                 <?php
                 // Display role badge if role_check.php is loaded
                 if (function_exists('getRoleBadge')) {
                     echo getRoleBadge() . ' ';
                 }
                 ?>
-                <span class="navbar-text me-3 text-white">
+                <span class="navbar-text text-white">
                     <i class="bi bi-person-circle me-1"></i>
                     <?php echo htmlspecialchars($_SESSION['staff_name'] ?? 'Staff'); ?>
                 </span>
                 <a class="btn btn-outline-light btn-sm"
                    href="/garage_system/public/logout.php">
+                    <i class="bi bi-box-arrow-right me-1"></i>Logout
+                </a>
+            </div>
+        <?php elseif (!empty($_SESSION['customer_id'])): ?>
+            <div class="d-flex align-items-center gap-3">
+                <!-- Notification Bell Widget -->
+                <?php include __DIR__ . '/notification_widget.php'; ?>
+                
+                <span class="navbar-text text-white">
+                    <i class="bi bi-person-circle me-1"></i>
+                    <?php echo htmlspecialchars($_SESSION['customer_name'] ?? 'Customer'); ?>
+                </span>
+                <a class="btn btn-outline-light btn-sm"
+                   href="/garage_system/public/customer_logout.php">
                     <i class="bi bi-box-arrow-right me-1"></i>Logout
                 </a>
             </div>

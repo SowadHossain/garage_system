@@ -485,6 +485,34 @@ $total_bills = $bills_result->fetch_assoc()['count'];
                     </div>
                 </div>
             </div>
+            <div class="col-md-6">
+                <div class="section-card">
+                    <div class="text-center py-4">
+                        <p class="text-muted mb-3">
+                            <i class="bi bi-star-fill" style="font-size: 3rem; opacity: 0.3; color: #ffc107;"></i>
+                        </p>
+                        <h3 class="h5 mb-2">Write a Review</h3>
+                        <p class="text-muted mb-3">Share your experience with us</p>
+                        <a href="../reviews/submit.php" class="btn btn-warning">
+                            <i class="bi bi-pencil-square me-2"></i>Write Review
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="section-card">
+                    <div class="text-center py-4">
+                        <p class="text-muted mb-3">
+                            <i class="bi bi-star-half" style="font-size: 3rem; opacity: 0.3;"></i>
+                        </p>
+                        <h3 class="h5 mb-2">Customer Reviews</h3>
+                        <p class="text-muted mb-3">See what others are saying</p>
+                        <a href="../reviews/list.php" class="btn btn-outline-primary">
+                            <i class="bi bi-eye me-2"></i>View Reviews
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
