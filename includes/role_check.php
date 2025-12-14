@@ -8,13 +8,21 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+/*
+ * Base URL for redirects
+ * Adjust once if project folder name changes
+ */
+$BASE_URL = '/garage_system/public';
+
 /**
  * Check if user is logged in as staff
- * Redirects to login if not authenticated
+ * Redirects to staff login if not authenticated
  */
 function requireStaffLogin() {
-    if (!isset($_SESSION['staff_id'])) {
-        header("Location: /garage_system/public/staff_login.php");
+    global $BASE_URL;
+
+    if (empty($_SESSION['staff_id'])) {
+        header("Location: {$BASE_URL}/staff_login.php");
         exit;
     }
 }
@@ -26,55 +34,50 @@ function requireStaffLogin() {
  * @return bool - True if user has required role, false otherwise
  */
 function requireRole($allowed_roles, $redirect = true) {
-    // First ensure user is logged in as staff
-    if (!isset($_SESSION['staff_id'])) {
-        header("Location: /garage_system/public/staff_login.php");
+    global $BASE_URL;
+
+    // Ensure logged in
+    if (empty($_SESSION['staff_id'])) {
+        header("Location: {$BASE_URL}/staff_login.php");
         exit;
     }
-    
-    // Check if user's role is in allowed roles
+
     $user_role = $_SESSION['staff_role'] ?? '';
-    
-    if (!in_array($user_role, $allowed_roles)) {
+
+    if (!in_array($user_role, (array)$allowed_roles, true)) {
         if ($redirect) {
-            // Redirect to access denied page
-            header("Location: /garage_system/public/access_denied.php");
+            header("Location: {$BASE_URL}/access_denied.php");
             exit;
-        } else {
-            return false;
         }
+        return false;
     }
-    
+
     return true;
 }
 
 /**
  * Check if current user is admin
- * @return bool
  */
 function isAdmin() {
-    return isset($_SESSION['staff_role']) && $_SESSION['staff_role'] === 'admin';
+    return ($_SESSION['staff_role'] ?? '') === 'admin';
 }
 
 /**
  * Check if current user is receptionist
- * @return bool
  */
 function isReceptionist() {
-    return isset($_SESSION['staff_role']) && $_SESSION['staff_role'] === 'receptionist';
+    return ($_SESSION['staff_role'] ?? '') === 'receptionist';
 }
 
 /**
  * Check if current user is mechanic
- * @return bool
  */
 function isMechanic() {
-    return isset($_SESSION['staff_role']) && $_SESSION['staff_role'] === 'mechanic';
+    return ($_SESSION['staff_role'] ?? '') === 'mechanic';
 }
 
 /**
  * Get current user's role
- * @return string|null
  */
 function getCurrentRole() {
     return $_SESSION['staff_role'] ?? null;
@@ -83,17 +86,15 @@ function getCurrentRole() {
 /**
  * Check if user has permission to access a specific feature
  * @param string $feature - Feature name (e.g., 'manage_customers', 'view_reports')
- * @return bool
  */
 function hasPermission($feature) {
     $role = getCurrentRole();
-    
-    // Define permission matrix
+
     $permissions = [
         'admin' => [
             'view_dashboard',
             'manage_customers',
-            'manage_vehicles', 
+            'manage_vehicles',
             'manage_appointments',
             'manage_jobs',
             'manage_bills',
@@ -122,26 +123,25 @@ function hasPermission($feature) {
             'view_customer_data',
         ],
     ];
-    
+
     if (!$role || !isset($permissions[$role])) {
         return false;
     }
-    
-    return in_array($feature, $permissions[$role]);
+
+    return in_array($feature, $permissions[$role], true);
 }
 
 /**
  * Display role badge HTML
- * @return string
  */
 function getRoleBadge() {
     $role = getCurrentRole();
-    
+
     $badges = [
         'admin' => '<span class="badge bg-danger"><i class="bi bi-shield-fill-check me-1"></i>Admin</span>',
         'receptionist' => '<span class="badge bg-primary"><i class="bi bi-person-badge me-1"></i>Receptionist</span>',
         'mechanic' => '<span class="badge bg-success"><i class="bi bi-wrench me-1"></i>Mechanic</span>',
     ];
-    
+
     return $badges[$role] ?? '<span class="badge bg-secondary">Unknown</span>';
 }

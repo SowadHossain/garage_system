@@ -1,35 +1,79 @@
 <?php
-// public/receptionist_dashboard.php - Receptionist Dashboard
+// public/receptionist_portal/receptionist_dashboard.php - Receptionist Dashboard
 session_start();
-require_once __DIR__ . "/../config/db.php";
+require_once __DIR__ . "/../../config/db.php";
 
 // Check if user is logged in as receptionist
-if (!isset($_SESSION['staff_id']) || $_SESSION['staff_role'] !== 'receptionist') {
-    header("Location: staff_login.php");
+if (empty($_SESSION['staff_id']) || ($_SESSION['staff_role'] ?? '') !== 'receptionist') {
+    header("Location: ../staff_login.php");
     exit;
 }
 
-$staff_name = $_SESSION['staff_name'];
+$staff_name = $_SESSION['staff_name'] ?? 'Receptionist';
 
-// Get receptionist-specific statistics
-$total_customers = $conn->query("SELECT COUNT(*) as count FROM customers")->fetch_assoc()['count'];
-$pending_appointments = $conn->query("SELECT COUNT(*) as count FROM appointments WHERE status IN ('booked', 'pending')")->fetch_assoc()['count'];
-$today_appointments = $conn->query("SELECT COUNT(*) as count FROM appointments WHERE DATE(appointment_datetime) = CURDATE()")->fetch_assoc()['count'];
-$unpaid_bills = $conn->query("SELECT COUNT(*) as count FROM bills WHERE payment_status = 'unpaid'")->fetch_assoc()['count'];
+// Get receptionist-specific statistics (DB-compatible)
+$total_customers = (int)$conn->query("SELECT COUNT(*) AS count FROM customers")->fetch_assoc()['count'];
 
-// Get recent appointments
-$recent_appointments = $conn->query("SELECT a.*, c.name as customer_name, c.phone, v.registration_no, v.brand, v.model
-                                     FROM appointments a
-                                     JOIN customers c ON a.customer_id = c.customer_id
-                                     LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
-                                     ORDER BY a.appointment_datetime DESC
-                                     LIMIT 8")->fetch_all(MYSQLI_ASSOC);
+$pending_appointments = (int)$conn->query("
+    SELECT COUNT(*) AS count 
+    FROM appointments 
+    WHERE status IN ('requested','booked')
+")->fetch_assoc()['count'];
+
+$today_appointments = (int)$conn->query("
+    SELECT COUNT(*) AS count 
+    FROM appointments 
+    WHERE requested_date = CURDATE()
+")->fetch_assoc()['count'];
+
+$unpaid_bills = (int)$conn->query("
+    SELECT COUNT(*) AS count 
+    FROM bills 
+    WHERE payment_status = 'unpaid'
+")->fetch_assoc()['count'];
+
+// Get recent appointments (DB-compatible)
+$recent_appointments = $conn->query("
+    SELECT 
+        a.appointment_id,
+        a.status,
+        a.requested_date,
+        a.requested_slot,
+        a.problem_text,
+        c.name AS customer_name,
+        c.phone,
+        v.plate_no,
+        v.make,
+        v.model
+    FROM appointments a
+    JOIN customers c ON a.customer_id = c.customer_id
+    LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
+    ORDER BY a.requested_date DESC, a.requested_slot DESC, a.created_at DESC
+    LIMIT 8
+")->fetch_all(MYSQLI_ASSOC);
 
 // Get recent customers
-$recent_customers = $conn->query("SELECT customer_id, name, email, phone, created_at
-                                  FROM customers
-                                  ORDER BY created_at DESC
-                                  LIMIT 6")->fetch_all(MYSQLI_ASSOC);
+$recent_customers = $conn->query("
+    SELECT customer_id, name, email, phone, created_at
+    FROM customers
+    ORDER BY created_at DESC
+    LIMIT 6
+")->fetch_all(MYSQLI_ASSOC);
+
+function statusBadgeClass($status) {
+    switch ($status) {
+        case 'requested':   return 'warning';
+        case 'booked':      return 'info';
+        case 'in_progress': return 'info';
+        case 'completed':   return 'success';
+        case 'cancelled':   return 'danger';
+        default:            return 'info';
+    }
+}
+
+function statusLabel($status) {
+    return ucfirst(str_replace('_', ' ', (string)$status));
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -327,7 +371,7 @@ $recent_customers = $conn->query("SELECT customer_id, name, email, phone, create
                     <i class="bi bi-person-circle me-2"></i>
                     <?php echo htmlspecialchars($staff_name); ?>
                 </span>
-                <a href="logout.php" class="logout-btn">
+                <a href="../logout.php" class="logout-btn">
                     <i class="bi bi-box-arrow-right me-1"></i>Logout
                 </a>
             </div>
@@ -400,7 +444,7 @@ $recent_customers = $conn->query("SELECT customer_id, name, email, phone, create
                 Quick Actions
             </h2>
             <div class="actions-grid">
-                <a href="../customers/add.php" class="action-btn">
+                <a href="add_customer.php" class="action-btn">
                     <i class="bi bi-person-plus-fill"></i>
                     <div class="action-text">
                         <div class="action-title">Add Customer</div>
@@ -408,7 +452,7 @@ $recent_customers = $conn->query("SELECT customer_id, name, email, phone, create
                     </div>
                 </a>
                 
-                <a href="../appointments/add.php" class="action-btn">
+                <a href="book_appointment.php" class="action-btn">
                     <i class="bi bi-calendar-plus"></i>
                     <div class="action-text">
                         <div class="action-title">Book Appointment</div>
@@ -416,7 +460,7 @@ $recent_customers = $conn->query("SELECT customer_id, name, email, phone, create
                     </div>
                 </a>
                 
-                <a href="../vehicles/add.php" class="action-btn">
+                <a href="add_vehicle.php" class="action-btn">
                     <i class="bi bi-car-front-fill"></i>
                     <div class="action-text">
                         <div class="action-title">Add Vehicle</div>
@@ -424,7 +468,7 @@ $recent_customers = $conn->query("SELECT customer_id, name, email, phone, create
                     </div>
                 </a>
                 
-                <a href="../bills/generate.php" class="action-btn">
+                <a href="billing.php" class="action-btn">
                     <i class="bi bi-receipt-cutoff"></i>
                     <div class="action-text">
                         <div class="action-title">Generate Bill</div>
@@ -432,7 +476,7 @@ $recent_customers = $conn->query("SELECT customer_id, name, email, phone, create
                     </div>
                 </a>
                 
-                <a href="../customers/list.php" class="action-btn">
+                <a href="customers_list.php" class="action-btn">
                     <i class="bi bi-search"></i>
                     <div class="action-text">
                         <div class="action-title">Search Customers</div>
@@ -440,7 +484,7 @@ $recent_customers = $conn->query("SELECT customer_id, name, email, phone, create
                     </div>
                 </a>
                 
-                <a href="search.php" class="action-btn">
+                <a href="global_search.php" class="action-btn">
                     <i class="bi bi-search-heart"></i>
                     <div class="action-text">
                         <div class="action-title">Global Search</div>
@@ -467,31 +511,28 @@ $recent_customers = $conn->query("SELECT customer_id, name, email, phone, create
                                 <div>
                                     <div class="item-title"><?php echo htmlspecialchars($appt['customer_name']); ?></div>
                                     <div class="item-details">
-                                        <?php if ($appt['registration_no']): ?>
-                                            <i class="bi bi-car-front me-1"></i><?php echo htmlspecialchars($appt['brand'] . ' ' . $appt['model']); ?> 
-                                            - <?php echo htmlspecialchars($appt['registration_no']); ?><br>
+                                        <?php if (!empty($appt['plate_no'])): ?>
+                                            <i class="bi bi-car-front me-1"></i>
+                                            <?php echo htmlspecialchars(trim(($appt['make'] ?? '') . ' ' . ($appt['model'] ?? ''))); ?>
+                                            - <?php echo htmlspecialchars($appt['plate_no']); ?><br>
                                         <?php endif; ?>
-                                        <i class="bi bi-calendar3 me-1"></i><?php echo date('M d, Y h:i A', strtotime($appt['appointment_datetime'])); ?>
+                                        <i class="bi bi-calendar3 me-1"></i>
+                                        <?php echo date('M d, Y', strtotime($appt['requested_date'])); ?>
+                                        (Slot <?php echo (int)$appt['requested_slot']; ?>)
+                                        <?php if (!empty($appt['problem_text'])): ?>
+                                            <br><i class="bi bi-wrench me-1"></i><?php echo htmlspecialchars(mb_strimwidth($appt['problem_text'], 0, 90, '...')); ?>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
-                                <span class="badge <?php 
-                                    echo match($appt['status']) {
-                                        'booked' => 'info',
-                                        'pending' => 'warning',
-                                        'confirmed' => 'success',
-                                        'completed' => 'success',
-                                        'cancelled' => 'danger',
-                                        default => 'info'
-                                    };
-                                ?>">
-                                    <?php echo ucfirst(htmlspecialchars($appt['status'])); ?>
+                                <span class="badge <?php echo statusBadgeClass($appt['status']); ?>">
+                                    <?php echo htmlspecialchars(statusLabel($appt['status'])); ?>
                                 </span>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <div class="mt-3 text-center">
-                    <a href="../appointments/list.php" class="btn btn-outline-success">View All Appointments</a>
+                    <a href="appointments.php" class="btn btn-outline-success">View All Appointments</a>
                 </div>
             </div>
 
@@ -516,7 +557,7 @@ $recent_customers = $conn->query("SELECT customer_id, name, email, phone, create
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <div class="mt-3 text-center">
-                    <a href="../customers/list.php" class="btn btn-outline-success">View All Customers</a>
+                    <a href="customers_list.php" class="btn btn-outline-success">View All Customers</a>
                 </div>
             </div>
         </div>

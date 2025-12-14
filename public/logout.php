@@ -1,26 +1,26 @@
 <?php
 // public/logout.php
+
 session_start();
 
-// Log logout before destroying session
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/activity_logger.php';
+// Clear all session variables
+$_SESSION = [];
 
-if (isset($_SESSION['staff_id']) || isset($_SESSION['customer_id'])) {
-    logActivity(
-        'User Logged Out',
-        LOG_ACTION_LOGOUT,
-        null,
-        null,
-        null,
-        null,
-        'User logged out successfully',
-        LOG_SEVERITY_INFO,
-        'success'
+// If sessions use cookies, invalidate the cookie
+if (ini_get('session.use_cookies')) {
+    $params = session_get_cookie_params();
+    setcookie(
+        session_name(),
+        '',
+        time() - 42000,
+        $params['path'],
+        $params['domain'],
+        $params['secure'],
+        $params['httponly']
     );
 }
 
-session_unset();
+// Destroy the session
 session_destroy();
 
 header("Location: welcome.php");

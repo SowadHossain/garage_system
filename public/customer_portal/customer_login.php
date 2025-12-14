@@ -1,10 +1,15 @@
 <?php
-// public/customer_login.php - Customer Login Page
+// public/customer_login.php - Customer Login Page (UI unchanged, logic fixed)
 
 session_start();
 
-require_once __DIR__ . "/../config/db.php";
-require_once __DIR__ . "/../includes/activity_logger.php";
+require_once __DIR__ . "/../../config/db.php";
+
+// Optional: only include if you still keep activity logging
+$loggerPath = __DIR__ . "/../includes/activity_logger.php";
+if (file_exists($loggerPath)) {
+    require_once $loggerPath;
+}
 
 // If already logged in as customer, go to customer dashboard
 if (!empty($_SESSION['customer_id'])) {
@@ -13,6 +18,11 @@ if (!empty($_SESSION['customer_id'])) {
 }
 
 $error = "";
+
+// Small safe wrapper so this file works even if activity_logger.php is removed
+if (!function_exists('logLoginAttempt')) {
+    function logLoginAttempt($identifier, $userType, $success, $reason = null) { /* no-op */ }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Normalize email to lowercase to avoid case-sensitivity issues
@@ -23,38 +33,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Please enter both email and password.";
     } else {
         // Prepared statement to prevent SQL injection
-        $stmt = $conn->prepare("SELECT customer_id, name, email, phone, password_hash, is_email_verified 
-                                FROM customers 
-                                WHERE email = ? LIMIT 1");
+        $stmt = $conn->prepare("SELECT customer_id, name, email, phone, password_hash
+                                FROM customers
+                                WHERE LOWER(email) = ? LIMIT 1");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
         $customer = $result->fetch_assoc();
         $stmt->close();
 
-        if ($customer) {
-            if (password_verify($password, $customer['password_hash'])) {
-                // Correct password - regenerate session id to prevent fixation
-                session_regenerate_id(true);
+        if ($customer && !empty($customer['password_hash']) && password_verify($password, $customer['password_hash'])) {
+            // Correct password - regenerate session id to prevent fixation
+            session_regenerate_id(true);
 
-                $_SESSION['customer_id']   = $customer['customer_id'];
-                $_SESSION['customer_name'] = $customer['name'];
-                $_SESSION['customer_email'] = $customer['email'];
-                $_SESSION['customer_phone'] = $customer['phone'];
+            $_SESSION['customer_id']    = (int)$customer['customer_id'];
+            $_SESSION['customer_name']  = $customer['name'];
+            $_SESSION['customer_email'] = $customer['email'];
+            $_SESSION['customer_phone'] = $customer['phone'];
 
-                // Log successful login
-                logLoginAttempt($email, 'customer', true);
+            logLoginAttempt($email, 'customer', true);
 
-                header("Location: customer_dashboard.php");
-                exit;
-            } else {
-                // Log failed login
-                logLoginAttempt($email, 'customer', false, 'Invalid password');
-                $error = "Invalid email or password.";
-            }
+            header("Location: customer_dashboard.php");
+            exit;
         } else {
-            // Log failed login
-            logLoginAttempt($email, 'customer', false, 'Email not found');
+            logLoginAttempt($email, 'customer', false, $customer ? 'Invalid password' : 'Email not found');
             $error = "Invalid email or password.";
         }
     }

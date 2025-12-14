@@ -1,26 +1,43 @@
 <?php
-// appointments/view_appointments.php - View Customer Appointments
+// appointments/view_appointments.php - View Customer Appointments (DB compatible, same UI)
 
 session_start();
-
 require_once __DIR__ . "/../config/db.php";
 
 // Check if customer is logged in
 if (empty($_SESSION['customer_id'])) {
-    header("Location: ../public/customer_login.php");
+    header("Location: /garage_system/public/customer_portal/customer_login.php");
     exit;
 }
 
-$customer_id = $_SESSION['customer_id'];
-$customer_name = $_SESSION['customer_name'];
+$customer_id   = (int)$_SESSION['customer_id'];
+$customer_name = $_SESSION['customer_name'] ?? 'Customer';
 
-// Fetch appointments with vehicle details
+// Slot -> time (edit if you want different times)
+$slotTimes = [
+    1 => '10:00',
+    2 => '12:00',
+    3 => '14:00',
+    4 => '16:00',
+];
+
+// Fetch appointments with vehicle details (NEW schema)
 $appointments_stmt = $conn->prepare("
-    SELECT a.*, v.registration_no, v.brand, v.model, v.year
+    SELECT
+        a.appointment_id,
+        a.requested_date,
+        a.requested_slot,
+        a.problem_text,
+        a.status,
+        a.created_at,
+        v.plate_no,
+        v.make,
+        v.model,
+        v.model_year
     FROM appointments a
     LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
     WHERE a.customer_id = ?
-    ORDER BY a.appointment_datetime DESC
+    ORDER BY a.requested_date DESC, a.requested_slot DESC, a.created_at DESC
 ");
 $appointments_stmt->bind_param("i", $customer_id);
 $appointments_stmt->execute();
@@ -40,6 +57,28 @@ foreach ($appointments as $appointment) {
     } else {
         $upcoming[] = $appointment;
     }
+}
+
+function badgeForStatus($status) {
+    return match($status) {
+        'requested'   => 'warning',
+        'booked'      => 'primary',
+        'in_progress' => 'info',
+        'completed'   => 'success',
+        'cancelled'   => 'danger',
+        default       => 'secondary',
+    };
+}
+
+function prettyStatus($status) {
+    return ucfirst(str_replace('_', ' ', (string)$status));
+}
+
+function dtFromDateSlot($date, $slot, $slotTimes) {
+    $t = $slotTimes[(int)$slot] ?? '10:00';
+    $dt = DateTime::createFromFormat('Y-m-d H:i', $date . ' ' . $t);
+    if (!$dt) $dt = new DateTime($date);
+    return $dt;
 }
 ?>
 <!DOCTYPE html>
@@ -291,10 +330,10 @@ foreach ($appointments as $appointment) {
 </head>
 <body>
     <nav class="top-nav">
-        <a href="../public/customer_dashboard.php" class="nav-brand">
+        <a href="/garage_system/public/customer_portal/customer_dashboard.php" class="nav-brand">
             <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
         </a>
-        <a href="../public/customer_logout.php" class="btn btn-sm btn-outline-danger">
+        <a href="/garage_system/public/customer_portal/customer_logout.php" class="btn btn-sm btn-outline-danger">
             <i class="bi bi-box-arrow-right"></i>
         </a>
     </nav>
@@ -335,7 +374,7 @@ foreach ($appointments as $appointment) {
                 </div>
             <?php else: ?>
                 <?php foreach ($upcoming as $appt): 
-                    $datetime = new DateTime($appt['appointment_datetime']);
+                    $datetime = dtFromDateSlot($appt['requested_date'], $appt['requested_slot'], $slotTimes);
                 ?>
                     <div class="appointment-card">
                         <div class="appointment-header">
@@ -347,15 +386,13 @@ foreach ($appointments as $appointment) {
                                 <div>
                                     <div class="appointment-date">
                                         <i class="bi bi-clock"></i>
-                                        <?php echo $datetime->format('l, F j, Y \a\t g:i A'); ?>
+                                        <?php echo $datetime->format('l, F j, Y'); ?>
+                                        <span class="text-muted">• Slot <?php echo (int)$appt['requested_slot']; ?></span>
                                     </div>
                                 </div>
                             </div>
-                            <span class="badge bg-<?php 
-                                echo $appt['status'] === 'booked' ? 'primary' : 
-                                    ($appt['status'] === 'confirmed' ? 'success' : 'warning'); 
-                            ?>">
-                                <?php echo ucfirst($appt['status']); ?>
+                            <span class="badge bg-<?php echo badgeForStatus($appt['status']); ?>">
+                                <?php echo htmlspecialchars(prettyStatus($appt['status'])); ?>
                             </span>
                         </div>
                         
@@ -364,14 +401,22 @@ foreach ($appointments as $appointment) {
                                 <i class="bi bi-car-front-fill"></i>
                             </div>
                             <div class="vehicle-details">
-                                <h4><?php echo htmlspecialchars($appt['brand'] . ' ' . $appt['model']); ?></h4>
-                                <p><?php echo htmlspecialchars($appt['registration_no'] . ' • ' . $appt['year']); ?></p>
+                                <h4>
+                                    <?php echo htmlspecialchars(trim(($appt['make'] ?? '') . ' ' . ($appt['model'] ?? '')) ?: 'Vehicle'); ?>
+                                </h4>
+                                <p>
+                                    <?php
+                                        $plate = $appt['plate_no'] ?? '';
+                                        $year  = $appt['model_year'] ?? '';
+                                        echo htmlspecialchars(trim(($plate ? $plate : 'No plate') . ($year ? ' • ' . $year : '')));
+                                    ?>
+                                </p>
                             </div>
                         </div>
                         
                         <div class="problem-description">
                             <strong><i class="bi bi-chat-square-text me-1"></i>Problem Description:</strong>
-                            <?php echo htmlspecialchars($appt['problem_description']); ?>
+                            <?php echo htmlspecialchars($appt['problem_text'] ?? ''); ?>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -387,7 +432,7 @@ foreach ($appointments as $appointment) {
                 </h2>
                 
                 <?php foreach (array_slice($completed, 0, 5) as $appt): 
-                    $datetime = new DateTime($appt['appointment_datetime']);
+                    $datetime = dtFromDateSlot($appt['requested_date'], $appt['requested_slot'], $slotTimes);
                 ?>
                     <div class="appointment-card">
                         <div class="appointment-header">
@@ -399,7 +444,8 @@ foreach ($appointments as $appointment) {
                                 <div>
                                     <div class="appointment-date">
                                         <i class="bi bi-clock"></i>
-                                        <?php echo $datetime->format('l, F j, Y \a\t g:i A'); ?>
+                                        <?php echo $datetime->format('l, F j, Y'); ?>
+                                        <span class="text-muted">• Slot <?php echo (int)$appt['requested_slot']; ?></span>
                                     </div>
                                 </div>
                             </div>
@@ -411,14 +457,22 @@ foreach ($appointments as $appointment) {
                                 <i class="bi bi-car-front-fill"></i>
                             </div>
                             <div class="vehicle-details">
-                                <h4><?php echo htmlspecialchars($appt['brand'] . ' ' . $appt['model']); ?></h4>
-                                <p><?php echo htmlspecialchars($appt['registration_no'] . ' • ' . $appt['year']); ?></p>
+                                <h4>
+                                    <?php echo htmlspecialchars(trim(($appt['make'] ?? '') . ' ' . ($appt['model'] ?? '')) ?: 'Vehicle'); ?>
+                                </h4>
+                                <p>
+                                    <?php
+                                        $plate = $appt['plate_no'] ?? '';
+                                        $year  = $appt['model_year'] ?? '';
+                                        echo htmlspecialchars(trim(($plate ? $plate : 'No plate') . ($year ? ' • ' . $year : '')));
+                                    ?>
+                                </p>
                             </div>
                         </div>
                         
                         <div class="problem-description" style="background: #e7f7ef; border-color: #198754;">
                             <strong><i class="bi bi-chat-square-text me-1"></i>Problem Description:</strong>
-                            <?php echo htmlspecialchars($appt['problem_description']); ?>
+                            <?php echo htmlspecialchars($appt['problem_text'] ?? ''); ?>
                         </div>
                     </div>
                 <?php endforeach; ?>

@@ -289,7 +289,7 @@
                         </span>
                     </a>
                     
-                    <a href="customer_login.php" class="login-option customer">
+                    <a href="customer_portal/customer_login.php" class="login-option customer">
                         <div class="option-icon">
                             <i class="bi bi-people-fill"></i>
                         </div>
@@ -325,11 +325,11 @@
                         </div>
                         <div class="feature-item">
                             <i class="bi bi-check-circle-fill"></i>
-                            <span>Email Notifications</span>
+                            <span>Vehicle History</span>
                         </div>
                         <div class="feature-item">
                             <i class="bi bi-check-circle-fill"></i>
-                            <span>Vehicle History</span>
+                            <span>Customer Management</span>
                         </div>
                     </div>
                 </div>

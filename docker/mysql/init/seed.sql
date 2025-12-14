@@ -1,127 +1,247 @@
-USE garage_db;
+-- seed.sql (complete, ready-to-run)
+-- Uses fixed IDs so your demo data is stable every time.
+-- Passwords are commented in plaintext for easy access.
 
--- =========================
--- Screw Dheela Management System
--- =========================
+USE garage_system;
 
--- Add staff accounts (id chosen to avoid colliding with create_admin.php)
--- Login credentials for Admin: username = 'admin_user', password = 'staffpass'
--- Hash generated with: password_hash('staffpass', PASSWORD_BCRYPT)
-INSERT INTO staff (staff_id, name, role, username, email, password_hash, is_email_verified, active, created_at)
-VALUES (1000, 'Admin User', 'admin', 'admin_user', 'admin@example.com', '$2y$10$n7g9sSWqnGqP6z89S4RZSuob7nIuH3dsccRXkzNw.C2qjB5AwOxCa', 1, 1, NOW())
-ON DUPLICATE KEY UPDATE 
-    name = VALUES(name),
-    role = VALUES(role),
-    username = VALUES(username),
-    email = VALUES(email),
-    password_hash = VALUES(password_hash),
-    is_email_verified = VALUES(is_email_verified),
-    active = VALUES(active),
-    created_at = VALUES(created_at);
+SET FOREIGN_KEY_CHECKS = 0;
 
--- Login credentials for Receptionist: username = 'receptionist_user', password = 'staffpass'
--- Hash generated with: password_hash('staffpass', PASSWORD_BCRYPT)
-INSERT INTO staff (staff_id, name, role, username, email, password_hash, is_email_verified, active, created_at)
-VALUES (1001, 'Sarah Reception', 'receptionist', 'receptionist_user', 'reception@example.com', '$2y$10$n7g9sSWqnGqP6z89S4RZSuob7nIuH3dsccRXkzNw.C2qjB5AwOxCa', 1, 1, NOW())
-ON DUPLICATE KEY UPDATE 
-    name = VALUES(name),
-    role = VALUES(role),
-    username = VALUES(username),
-    email = VALUES(email),
-    password_hash = VALUES(password_hash),
-    is_email_verified = VALUES(is_email_verified),
-    active = VALUES(active);
+-- ----------------------------
+-- Roles (fixed IDs)
+-- ----------------------------
+INSERT INTO roles (role_id, role_name) VALUES
+(1, 'admin'),
+(2, 'receptionist'),
+(3, 'mechanic')
+ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);
 
--- Login credentials for Mechanic: username = 'mechanic_user', password = 'staffpass'
--- Hash generated with: password_hash('staffpass', PASSWORD_BCRYPT)
-INSERT INTO staff (staff_id, name, role, username, email, password_hash, is_email_verified, active, created_at)
-VALUES (1002, 'Mike Mechanic', 'mechanic', 'mechanic_user', 'mechanic@example.com', '$2y$10$n7g9sSWqnGqP6z89S4RZSuob7nIuH3dsccRXkzNw.C2qjB5AwOxCa', 1, 1, NOW())
-ON DUPLICATE KEY UPDATE 
-    name = VALUES(name),
-    role = VALUES(role),
-    username = VALUES(username),
-    email = VALUES(email),
-    password_hash = VALUES(password_hash),
-    is_email_verified = VALUES(is_email_verified),
-    active = VALUES(active);
+-- ----------------------------
+-- Staff accounts (fixed IDs)
+-- ----------------------------
+-- LOGIN CREDENTIALS:
+-- Admin:        admin@screwdheela.local        Password: Admin@1234
+-- Receptionist: receptionist@screwdheela.local Password: Recpt@1234
+-- Mechanic 1:   moin@screwdheela.local         Password: MechMoin@1234
+-- Mechanic 2:   nila@screwdheela.local         Password: MechNila@1234
 
--- Add a couple of customers
--- Login credentials for Alice: email = 'alice@example.com', password = 'customer123'
--- Login credentials for Bob: email = 'bob@example.com', password = 'customer123'
--- Hash generated with: password_hash('customer123', PASSWORD_BCRYPT)
-INSERT INTO customers (customer_id, name, phone, email, address, password_hash, is_email_verified, created_at)
-VALUES
-  (2000, 'Alice Johnson', '+15551230001', 'alice@example.com', '123 Main St', '$2y$10$qeGgjIa6NSUWF/uZYC32we/sL4zMBGnkCx3WqmsnUIDQZuHDBaefK', 1, NOW()),
-  (2001, 'Bob Smith', '+15551230002', 'bob@example.com', '456 Oak Ave', '$2y$10$qeGgjIa6NSUWF/uZYC32we/sL4zMBGnkCx3WqmsnUIDQZuHDBaefK', 0, NOW())
-ON DUPLICATE KEY UPDATE 
-    name = VALUES(name),
-    phone = VALUES(phone),
-    email = VALUES(email),
-    address = VALUES(address),
-    password_hash = VALUES(password_hash),
-    is_email_verified = VALUES(is_email_verified);
+INSERT INTO staff (staff_id, role_id, name, email, phone, password_hash, is_active) VALUES
+(1000, 1, 'Admin User',        'admin@screwdheela.local',        '01700000001', '$2y$10$6LRCgb66oJN4jJxEUnLiwu/hBBYdfVfZi9aa9Gjzz0VUEK8XEL2IW', 1),
+(1001, 2, 'Receptionist Riya', 'receptionist@screwdheela.local', '01700000002', '$2y$10$d6NoPRDnqDlOT6U9KbMS7u10UHRuPv8szVd9C0B.OBRCxvuPe0/wK', 1),
+(1002, 3, 'Mechanic Moin',     'moin@screwdheela.local',         '01700000003', '$2y$10$8PvrON7m.JptMUP2fmdYeu6yThXz.68G3goH9GCHAHvNtZ0eNE4ra', 1),
+(1003, 3, 'Mechanic Nila',     'nila@screwdheela.local',         '01700000004', '$2y$10$4UcKf30N4Gy1phZjWl8euOidQn/DOoWu/h4kzttor8LdkJ5fjPJzK', 1)
+ON DUPLICATE KEY UPDATE
+  role_id = VALUES(role_id),
+  name = VALUES(name),
+  phone = VALUES(phone),
+  password_hash = VALUES(password_hash),
+  is_active = VALUES(is_active);
 
--- Add services
-INSERT INTO services (service_id, name, description, base_price, category)
-VALUES
-  (3000, 'Oil Change', 'Basic engine oil and filter change', 29.99, 'Maintenance'),
-  (3001, 'Full Service', 'Comprehensive multi-point inspection and servicing', 199.99, 'Maintenance'),
-  (3002, 'Wheel Alignment', '4-wheel alignment', 49.99, 'Repair')
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+-- ----------------------------
+-- Customer accounts (fixed IDs)
+-- ----------------------------
+-- CUSTOMER LOGIN (if you use customer login):
+-- rahim@gmail.com  Password: Cust@1234
+-- sadia@gmail.com  Password: Cust@1234
+-- tanvir@gmail.com Password: Cust@1234
 
--- Add a vehicle for Alice
-INSERT INTO vehicles (vehicle_id, customer_id, registration_no, brand, model, year, vehicle_type)
-VALUES (4000, 2000, 'ABC-1234', 'Toyota', 'Corolla', 2015, 'car')
-ON DUPLICATE KEY UPDATE registration_no = VALUES(registration_no);
+INSERT INTO customers (customer_id, name, email, phone, password_hash) VALUES
+(2000, 'Rahim Uddin',  'rahim@gmail.com',  '01810000001', '$2y$10$aPRucdNaefOut3OxCpaf6.rkjUAfvkL.4IkloLZvL//kDarFIfbxm'),
+(2001, 'Sadia Islam',  'sadia@gmail.com',  '01810000002', '$2y$10$AwvgpSgaWB9tD7N2Kuocs.Vjo.93DlFoOYsmfzTWMLtJlXAD9lC16'),
+(2002, 'Tanvir Ahmed', 'tanvir@gmail.com', '01810000003', '$2y$10$GRkoifr83C2oB.re3tEgbOB8ToR.3ovv5pqyUnICtH1PuHO4D.Ub6')
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  phone = VALUES(phone),
+  password_hash = VALUES(password_hash);
 
--- Create an appointment for Alice
-INSERT INTO appointments (appointment_id, customer_id, vehicle_id, appointment_datetime, problem_description, status, created_by_staff_id, created_at)
-VALUES (5000, 2000, 4000, DATE_ADD(NOW(), INTERVAL 2 DAY), 'Regular oil change', 'booked', 1000, NOW())
-ON DUPLICATE KEY UPDATE appointment_datetime = VALUES(appointment_datetime);
+-- ----------------------------
+-- Vehicles (fixed IDs)
+-- ----------------------------
+INSERT INTO vehicles (vehicle_id, customer_id, plate_no, make, model, year, color) VALUES
+(3000, 2000, 'DHA-11-1234', 'Toyota', 'Corolla', 2016, 'White'),
+(3001, 2000, 'DHA-12-9876', 'Honda',  'Civic',   2018, 'Black'),
+(3002, 2001, 'DHA-15-2468', 'Suzuki', 'Swift',   2019, 'Red'),
+(3003, 2002, 'DHA-10-1357', 'Nissan', 'X-Trail', 2017, 'Silver')
+ON DUPLICATE KEY UPDATE
+  customer_id = VALUES(customer_id),
+  make = VALUES(make),
+  model = VALUES(model),
+  year = VALUES(year),
+  color = VALUES(color);
 
--- Convert appointment to a job (1 job per appointment)
-INSERT INTO jobs (job_id, appointment_id, job_date, status, remarks, mechanic_id)
-VALUES (6000, 5000, CURDATE(), 'open', 'Started diagnostics', 1000)
-ON DUPLICATE KEY UPDATE status = VALUES(status);
+-- ----------------------------
+-- Services catalog (fixed IDs)
+-- ----------------------------
+INSERT INTO services (service_id, name, base_price, is_active) VALUES
+(4000, 'Engine Oil Change',     1200.00, 1),
+(4001, 'Brake Pad Replacement', 3500.00, 1),
+(4002, 'Wheel Alignment',       1500.00, 1),
+(4003, 'Battery Check',          500.00, 1),
+(4004, 'AC Gas Refill',         2500.00, 1),
+(4005, 'General Diagnostics',   1000.00, 1)
+ON DUPLICATE KEY UPDATE
+  base_price = VALUES(base_price),
+  is_active = VALUES(is_active);
 
--- Add job services
-INSERT INTO job_services (job_service_id, job_id, service_id, quantity, unit_price)
-VALUES
-  (7000, 6000, 3000, 1, 29.99),
-  (7001, 6000, 3002, 1, 49.99)
-ON DUPLICATE KEY UPDATE unit_price = VALUES(unit_price);
+-- ----------------------------
+-- Mechanic schedules (today + next 2 days)
+-- Capacity is 4 as per your flow
+-- ----------------------------
+INSERT INTO mechanic_schedule (mechanic_id, work_date, capacity, reserved_count) VALUES
+(1002, CURDATE(), 4, 0),
+(1003, CURDATE(), 4, 0),
+(1002, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 4, 0),
+(1003, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 4, 0),
+(1002, DATE_ADD(CURDATE(), INTERVAL 2 DAY), 4, 0),
+(1003, DATE_ADD(CURDATE(), INTERVAL 2 DAY), 4, 0)
+ON DUPLICATE KEY UPDATE
+  capacity = VALUES(capacity);
 
--- Generate a bill for the job
-INSERT INTO bills (bill_id, job_id, bill_date, subtotal, tax_amount, discount, total_amount, payment_method, payment_status)
-VALUES (8000, 6000, NOW(), 79.98, 7.20, 0.00, 87.18, 'cash', 'unpaid')
-ON DUPLICATE KEY UPDATE total_amount = VALUES(total_amount);
+-- ----------------------------
+-- Appointments (fixed IDs)
+-- Flow examples:
+-- 5000: requested (no mechanic yet)
+-- 5001: booked (assigned to mechanic)
+-- 5002: completed with job + bill paid
+-- ----------------------------
 
--- Conversations & messages between customer and staff
-INSERT INTO conversations (conversation_id, customer_id, staff_id, status, created_at)
-VALUES (9000, 2000, 1000, 'open', NOW())
-ON DUPLICATE KEY UPDATE status = VALUES(status);
+-- Appointment 5000: REQUESTED
+INSERT INTO appointments (
+  appointment_id, customer_id, vehicle_id,
+  requested_date, requested_slot, problem_text,
+  status, mechanic_id, assigned_by_staff_id, assigned_at, receptionist_note
+) VALUES (
+  5000, 2000, 3000,
+  DATE_ADD(CURDATE(), INTERVAL 1 DAY), 2,
+  'Car making unusual noise when braking.',
+  'requested', NULL, NULL, NULL, NULL
+)
+ON DUPLICATE KEY UPDATE
+  requested_date = VALUES(requested_date),
+  requested_slot = VALUES(requested_slot),
+  problem_text = VALUES(problem_text),
+  status = VALUES(status);
 
-INSERT INTO messages (message_id, conversation_id, sender_type, sender_staff_id, sender_customer_id, content, sent_at, is_read)
-VALUES
-  (9100, 9000, 'customer', NULL, 2000, 'Hello, I would like to confirm my appointment.', NOW(), 0),
-  (9101, 9000, 'staff', 1000, NULL, 'We have you scheduled for an oil change in 2 days.', NOW(), 0)
-ON DUPLICATE KEY UPDATE sent_at = VALUES(sent_at);
+-- Appointment 5001: BOOKED (assigned by receptionist)
+INSERT INTO appointments (
+  appointment_id, customer_id, vehicle_id,
+  requested_date, requested_slot, problem_text,
+  status, mechanic_id, assigned_by_staff_id, assigned_at, receptionist_note
+) VALUES (
+  5001, 2001, 3002,
+  DATE_ADD(CURDATE(), INTERVAL 1 DAY), 1,
+  'AC not cooling properly.',
+  'booked', 1002, 1001, NOW(),
+  'Assigned to Moin for AC inspection.'
+)
+ON DUPLICATE KEY UPDATE
+  mechanic_id = VALUES(mechanic_id),
+  assigned_by_staff_id = VALUES(assigned_by_staff_id),
+  assigned_at = VALUES(assigned_at),
+  status = VALUES(status),
+  receptionist_note = VALUES(receptionist_note);
 
--- Notification types
-INSERT INTO notification_types (notification_type_id, code, description)
-VALUES
-  (10000, 'APPOINTMENT_REMINDER', 'Reminder for upcoming appointment'),
-  (10001, 'BILL_GENERATED', 'Notify when a bill is generated')
-ON DUPLICATE KEY UPDATE description = VALUES(description);
+-- Reserve a slot for mechanic 1002 on that day (demo increment)
+UPDATE mechanic_schedule
+SET reserved_count = LEAST(4, reserved_count + 1)
+WHERE mechanic_id = 1002
+  AND work_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY);
 
--- Broadcast example
-INSERT INTO broadcasts (broadcast_id, title, body, created_by_staff_id, target_user_type, created_at, scheduled_at, status)
-VALUES (11000, 'Holiday Hours', 'We will be closed on public holidays.', 1000, 'both', NOW(), NULL, 'sent')
-ON DUPLICATE KEY UPDATE title = VALUES(title);
+-- Appointment 5002: IN_PROGRESS -> COMPLETED with Job + Bill
+INSERT INTO appointments (
+  appointment_id, customer_id, vehicle_id,
+  requested_date, requested_slot, problem_text,
+  status, mechanic_id, assigned_by_staff_id, assigned_at, receptionist_note
+) VALUES (
+  5002, 2002, 3003,
+  CURDATE(), 3,
+  'Engine light is on, needs diagnostics.',
+  'in_progress', 1003, 1001, NOW(),
+  'Customer waiting, please start diagnostics ASAP.'
+)
+ON DUPLICATE KEY UPDATE
+  status = VALUES(status),
+  mechanic_id = VALUES(mechanic_id);
 
--- Email queue example (queued)
-INSERT INTO email_queue (email_id, user_type, user_id, subject, body, created_at, send_after, status)
-VALUES (12000, 'customer', 2000, 'Appointment Reminder', 'This is a reminder for your upcoming appointment.', NOW(), NOW(), 'queued')
-ON DUPLICATE KEY UPDATE subject = VALUES(subject);
+UPDATE mechanic_schedule
+SET reserved_count = LEAST(4, reserved_count + 1)
+WHERE mechanic_id = 1003
+  AND work_date = CURDATE();
 
--- End of seed
+-- ----------------------------
+-- Job for appointment 5002 (fixed ID)
+-- ----------------------------
+INSERT INTO jobs (
+  job_id, appointment_id, mechanic_id,
+  status, started_at, notes
+) VALUES (
+  6000, 5002, 1003,
+  'in_progress', NOW(),
+  'Initial inspection started.'
+)
+ON DUPLICATE KEY UPDATE
+  mechanic_id = VALUES(mechanic_id),
+  status = VALUES(status);
+
+-- Job services (mechanic adds performed services)
+INSERT INTO job_services (job_id, service_id, qty, unit_price) VALUES
+(6000, 4005, 1, 1000.00), -- General Diagnostics
+(6000, 4003, 1,  500.00)  -- Battery Check
+ON DUPLICATE KEY UPDATE
+  qty = VALUES(qty),
+  unit_price = VALUES(unit_price);
+
+-- ----------------------------
+-- Bill for job 6000 (fixed ID)
+-- Mechanic generates bill -> unpaid
+-- Receptionist marks paid
+-- ----------------------------
+
+-- Compute totals from job_services
+SET @subtotal := (SELECT COALESCE(SUM(line_total), 0) FROM job_services WHERE job_id = 6000);
+SET @discount := 0.00;
+SET @total := @subtotal - @discount;
+
+INSERT INTO bills (
+  bill_id, job_id, bill_no,
+  subtotal, discount, total,
+  payment_status, created_by_staff_id,
+  payment_method, paid_by_staff_id, paid_at
+) VALUES (
+  7000, 6000, CONCAT('BILL-', DATE_FORMAT(NOW(), '%Y%m%d'), '-6000'),
+  @subtotal, @discount, @total,
+  'unpaid', 1003,
+  NULL, NULL, NULL
+)
+ON DUPLICATE KEY UPDATE
+  subtotal = VALUES(subtotal),
+  discount = VALUES(discount),
+  total = VALUES(total),
+  payment_status = VALUES(payment_status);
+
+-- Copy bill items from job services for invoice display
+INSERT INTO bill_items (bill_id, description, qty, unit_price) VALUES
+(7000, 'General Diagnostics', 1, 1000.00),
+(7000, 'Battery Check',       1,  500.00)
+ON DUPLICATE KEY UPDATE
+  qty = VALUES(qty),
+  unit_price = VALUES(unit_price);
+
+-- Receptionist marks payment (demo)
+UPDATE bills
+SET payment_status = 'paid',
+    payment_method = 'bkash',
+    paid_by_staff_id = 1001,
+    paid_at = NOW()
+WHERE bill_id = 7000;
+
+-- Mark job + appointment completed (demo)
+UPDATE jobs
+SET status = 'completed',
+    completed_at = NOW()
+WHERE job_id = 6000;
+
+UPDATE appointments
+SET status = 'completed'
+WHERE appointment_id = 5002;
+
+SET FOREIGN_KEY_CHECKS = 1;

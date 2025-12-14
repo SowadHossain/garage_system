@@ -7,7 +7,7 @@ services:
     environment:
       # These are read by config/db.php in the app
       DB_HOST: db
-      DB_NAME: garage_db
+      DB_NAME: garage_system
       DB_USER: garage_user
       DB_PASSWORD: GaragePass123!
     volumes:

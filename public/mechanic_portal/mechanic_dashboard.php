@@ -1,56 +1,105 @@
 <?php
-// public/mechanic_dashboard.php - Mechanic Dashboard
+// public/mechanic_portal/mechanic_dashboard.php - Mechanic Dashboard
 session_start();
-require_once __DIR__ . "/../config/db.php";
+require_once __DIR__ . "/../../config/db.php";
 
 // Check if user is logged in as mechanic
-if (!isset($_SESSION['staff_id']) || $_SESSION['staff_role'] !== 'mechanic') {
-    header("Location: staff_login.php");
+if (empty($_SESSION['staff_id']) || ($_SESSION['staff_role'] ?? '') !== 'mechanic') {
+    header("Location: ../staff_login.php");
     exit;
 }
 
-$staff_id = $_SESSION['staff_id'];
-$staff_name = $_SESSION['staff_name'];
+$staff_id = (int)($_SESSION['staff_id'] ?? 0);
+$staff_name = $_SESSION['staff_name'] ?? 'Mechanic';
 
-// Get mechanic-specific statistics
-$my_active_jobs = $conn->prepare("SELECT COUNT(*) as count FROM jobs WHERE mechanic_id = ? AND status = 'open'");
+// ===== Stats (DB-compatible) =====
+$my_active_jobs = $conn->prepare("SELECT COUNT(*) AS count FROM jobs WHERE mechanic_id = ? AND status IN ('open','in_progress')");
 $my_active_jobs->bind_param("i", $staff_id);
 $my_active_jobs->execute();
-$active_jobs_count = $my_active_jobs->get_result()->fetch_assoc()['count'];
+$active_jobs_count = (int)$my_active_jobs->get_result()->fetch_assoc()['count'];
+$my_active_jobs->close();
 
-$my_completed_jobs = $conn->prepare("SELECT COUNT(*) as count FROM jobs WHERE mechanic_id = ? AND status = 'completed'");
+$my_completed_jobs = $conn->prepare("SELECT COUNT(*) AS count FROM jobs WHERE mechanic_id = ? AND status = 'completed'");
 $my_completed_jobs->bind_param("i", $staff_id);
 $my_completed_jobs->execute();
-$completed_jobs_count = $my_completed_jobs->get_result()->fetch_assoc()['count'];
+$completed_jobs_count = (int)$my_completed_jobs->get_result()->fetch_assoc()['count'];
+$my_completed_jobs->close();
 
-$total_open_jobs = $conn->query("SELECT COUNT(*) as count FROM jobs WHERE status = 'open'")->fetch_assoc()['count'];
-$pending_appointments = $conn->query("SELECT COUNT(*) as count FROM appointments WHERE status IN ('booked', 'confirmed')")->fetch_assoc()['count'];
+$total_open_jobs = (int)$conn->query("SELECT COUNT(*) AS count FROM jobs WHERE status IN ('open','in_progress')")->fetch_assoc()['count'];
 
-// Get my assigned jobs
-$my_jobs = $conn->prepare("SELECT j.*, a.appointment_datetime, a.problem_description,
-                                  c.name as customer_name, c.phone,
-                                  v.registration_no, v.brand, v.model, v.year
-                           FROM jobs j
-                           JOIN appointments a ON j.appointment_id = a.appointment_id
-                           JOIN customers c ON a.customer_id = c.customer_id
-                           LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
-                           WHERE j.mechanic_id = ?
-                           ORDER BY j.job_date DESC
-                           LIMIT 8");
+$pending_appointments = (int)$conn->query("
+    SELECT COUNT(*) AS count 
+    FROM appointments 
+    WHERE status IN ('requested','booked','in_progress')
+")->fetch_assoc()['count'];
+
+// ===== My Assigned Jobs (DB-compatible) =====
+$my_jobs = $conn->prepare("
+    SELECT 
+        j.job_id,
+        j.status,
+        j.created_at,
+        a.appointment_id,
+        a.requested_date,
+        a.requested_slot,
+        a.problem_text,
+        c.name AS customer_name,
+        c.phone,
+        v.plate_no,
+        v.make,
+        v.model,
+        v.model_year
+    FROM jobs j
+    JOIN appointments a ON j.appointment_id = a.appointment_id
+    JOIN customers c ON a.customer_id = c.customer_id
+    LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
+    WHERE j.mechanic_id = ?
+    ORDER BY j.created_at DESC
+    LIMIT 8
+");
 $my_jobs->bind_param("i", $staff_id);
 $my_jobs->execute();
 $assigned_jobs = $my_jobs->get_result()->fetch_all(MYSQLI_ASSOC);
+$my_jobs->close();
 
-// Get upcoming appointments
-$upcoming_appointments = $conn->query("SELECT a.*, c.name as customer_name, c.phone,
-                                              v.registration_no, v.brand, v.model
-                                       FROM appointments a
-                                       JOIN customers c ON a.customer_id = c.customer_id
-                                       LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
-                                       WHERE a.status IN ('booked', 'confirmed')
-                                       AND a.appointment_datetime >= NOW()
-                                       ORDER BY a.appointment_datetime ASC
-                                       LIMIT 6")->fetch_all(MYSQLI_ASSOC);
+// ===== Upcoming Appointments (DB-compatible) =====
+// Show booked/in_progress appointments from today onwards (by date)
+$upcoming_appointments = $conn->prepare("
+    SELECT 
+        a.appointment_id,
+        a.status,
+        a.requested_date,
+        a.requested_slot,
+        c.name AS customer_name,
+        c.phone,
+        v.plate_no,
+        v.make,
+        v.model
+    FROM appointments a
+    JOIN customers c ON a.customer_id = c.customer_id
+    LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
+    WHERE a.status IN ('booked','in_progress')
+      AND a.requested_date >= CURDATE()
+    ORDER BY a.requested_date ASC, a.requested_slot ASC
+    LIMIT 6
+");
+$upcoming_appointments->execute();
+$upcoming = $upcoming_appointments->get_result()->fetch_all(MYSQLI_ASSOC);
+$upcoming_appointments->close();
+
+function badgeClassJob($status) {
+    switch ($status) {
+        case 'open':        return 'warning';
+        case 'in_progress': return 'primary';
+        case 'completed':   return 'success';
+        case 'cancelled':   return 'danger';
+        default:            return 'primary';
+    }
+}
+
+function apptStatusLabel($status) {
+    return ucfirst(str_replace('_', ' ', (string)$status));
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -370,7 +419,7 @@ $upcoming_appointments = $conn->query("SELECT a.*, c.name as customer_name, c.ph
                     <i class="bi bi-person-circle me-2"></i>
                     <?php echo htmlspecialchars($staff_name); ?>
                 </span>
-                <a href="logout.php" class="logout-btn">
+                <a href="../logout.php" class="logout-btn">
                     <i class="bi bi-box-arrow-right me-1"></i>Logout
                 </a>
             </div>
@@ -443,7 +492,7 @@ $upcoming_appointments = $conn->query("SELECT a.*, c.name as customer_name, c.ph
                 Quick Actions
             </h2>
             <div class="actions-grid">
-                <a href="../jobs/list.php" class="action-btn">
+                <a href="../../jobs/list.php" class="action-btn">
                     <i class="bi bi-list-task"></i>
                     <div class="action-text">
                         <div class="action-title">View All Jobs</div>
@@ -451,7 +500,7 @@ $upcoming_appointments = $conn->query("SELECT a.*, c.name as customer_name, c.ph
                     </div>
                 </a>
                 
-                <a href="../jobs/add_services.php" class="action-btn">
+                <a href="../../jobs/add_services.php" class="action-btn">
                     <i class="bi bi-plus-circle-fill"></i>
                     <div class="action-text">
                         <div class="action-title">Add Services</div>
@@ -459,7 +508,7 @@ $upcoming_appointments = $conn->query("SELECT a.*, c.name as customer_name, c.ph
                     </div>
                 </a>
                 
-                <a href="../appointments/list.php" class="action-btn">
+                <a href="../../appointments/list.php" class="action-btn">
                     <i class="bi bi-calendar2-week"></i>
                     <div class="action-text">
                         <div class="action-title">View Appointments</div>
@@ -467,7 +516,7 @@ $upcoming_appointments = $conn->query("SELECT a.*, c.name as customer_name, c.ph
                     </div>
                 </a>
                 
-                <a href="../vehicles/list.php" class="action-btn">
+                <a href="../../vehicles/list.php" class="action-btn">
                     <i class="bi bi-car-front"></i>
                     <div class="action-text">
                         <div class="action-title">Vehicle Info</div>
@@ -492,35 +541,32 @@ $upcoming_appointments = $conn->query("SELECT a.*, c.name as customer_name, c.ph
                         <div class="job-card">
                             <div class="job-header">
                                 <div>
-                                    <div class="job-id">Job #<?php echo $job['job_id']; ?></div>
+                                    <div class="job-id">Job #<?php echo (int)$job['job_id']; ?></div>
                                     <div class="item-title"><?php echo htmlspecialchars($job['customer_name']); ?></div>
                                 </div>
-                                <span class="badge <?php 
-                                    echo match($job['status']) {
-                                        'open' => 'warning',
-                                        'completed' => 'success',
-                                        'cancelled' => 'danger',
-                                        default => 'primary'
-                                    };
-                                ?>">
-                                    <?php echo ucfirst(htmlspecialchars($job['status'])); ?>
+                                <span class="badge <?php echo badgeClassJob($job['status']); ?>">
+                                    <?php echo htmlspecialchars(ucfirst($job['status'])); ?>
                                 </span>
                             </div>
                             <div class="item-details">
-                                <?php if ($job['registration_no']): ?>
-                                    <i class="bi bi-car-front me-1"></i><?php echo htmlspecialchars($job['brand'] . ' ' . $job['model'] . ' (' . $job['year'] . ')'); ?><br>
-                                    <i class="bi bi-hash me-1"></i><?php echo htmlspecialchars($job['registration_no']); ?><br>
+                                <?php if (!empty($job['plate_no'])): ?>
+                                    <i class="bi bi-car-front me-1"></i>
+                                    <?php echo htmlspecialchars(trim(($job['make'] ?? '') . ' ' . ($job['model'] ?? '') . (!empty($job['model_year']) ? ' (' . $job['model_year'] . ')' : ''))); ?><br>
+                                    <i class="bi bi-hash me-1"></i><?php echo htmlspecialchars($job['plate_no']); ?><br>
                                 <?php endif; ?>
-                                <i class="bi bi-calendar3 me-1"></i>Job Date: <?php echo date('M d, Y', strtotime($job['job_date'])); ?><br>
-                                <?php if ($job['problem_description']): ?>
-                                    <i class="bi bi-exclamation-circle me-1"></i><?php echo htmlspecialchars($job['problem_description']); ?>
+
+                                <i class="bi bi-calendar3 me-1"></i>
+                                Appointment: <?php echo date('M d, Y', strtotime($job['requested_date'])); ?> (Slot <?php echo (int)$job['requested_slot']; ?>)<br>
+
+                                <?php if (!empty($job['problem_text'])): ?>
+                                    <i class="bi bi-exclamation-circle me-1"></i><?php echo htmlspecialchars(mb_strimwidth($job['problem_text'], 0, 120, '...')); ?>
                                 <?php endif; ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <div class="mt-3 text-center">
-                    <a href="../jobs/list.php" class="btn btn-outline-warning">View All Jobs</a>
+                    <a href="../../jobs/list.php" class="btn btn-outline-warning">View All Jobs</a>
                 </div>
             </div>
 
@@ -530,32 +576,35 @@ $upcoming_appointments = $conn->query("SELECT a.*, c.name as customer_name, c.ph
                     <i class="bi bi-calendar-event"></i>
                     Upcoming Appointments
                 </h2>
-                <?php if (empty($upcoming_appointments)): ?>
+                <?php if (empty($upcoming)): ?>
                     <p class="text-muted">No upcoming appointments.</p>
                 <?php else: ?>
-                    <?php foreach ($upcoming_appointments as $appt): ?>
+                    <?php foreach ($upcoming as $appt): ?>
                         <div class="list-item">
                             <div class="item-header">
                                 <div>
                                     <div class="item-title"><?php echo htmlspecialchars($appt['customer_name']); ?></div>
                                     <div class="item-details">
-                                        <?php if ($appt['registration_no']): ?>
-                                            <i class="bi bi-car-front me-1"></i><?php echo htmlspecialchars($appt['brand'] . ' ' . $appt['model']); ?> 
-                                            - <?php echo htmlspecialchars($appt['registration_no']); ?><br>
+                                        <?php if (!empty($appt['plate_no'])): ?>
+                                            <i class="bi bi-car-front me-1"></i>
+                                            <?php echo htmlspecialchars(trim(($appt['make'] ?? '') . ' ' . ($appt['model'] ?? ''))); ?>
+                                            - <?php echo htmlspecialchars($appt['plate_no']); ?><br>
                                         <?php endif; ?>
-                                        <i class="bi bi-calendar3 me-1"></i><?php echo date('M d, Y h:i A', strtotime($appt['appointment_datetime'])); ?><br>
+                                        <i class="bi bi-calendar3 me-1"></i>
+                                        <?php echo date('M d, Y', strtotime($appt['requested_date'])); ?>
+                                        (Slot <?php echo (int)$appt['requested_slot']; ?>)<br>
                                         <i class="bi bi-telephone me-1"></i><?php echo htmlspecialchars($appt['phone']); ?>
                                     </div>
                                 </div>
                                 <span class="badge info">
-                                    <?php echo ucfirst(htmlspecialchars($appt['status'])); ?>
+                                    <?php echo htmlspecialchars(apptStatusLabel($appt['status'])); ?>
                                 </span>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
                 <div class="mt-3 text-center">
-                    <a href="../appointments/list.php" class="btn btn-outline-warning">View All Appointments</a>
+                    <a href="../../appointments/list.php" class="btn btn-outline-warning">View All Appointments</a>
                 </div>
             </div>
         </div>

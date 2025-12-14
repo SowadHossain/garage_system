@@ -1,10 +1,9 @@
 <?php
-// public/staff_login.php - Staff Login Page
+// public/staff_login.php - Staff Login Page (EMAIL-based, DB-compatible, same UI)
 
 session_start();
 
 require_once __DIR__ . "/../config/db.php";
-require_once __DIR__ . "/../includes/activity_logger.php";
 
 // If already logged in as staff, go to dashboard
 if (!empty($_SESSION['staff_id'])) {
@@ -15,52 +14,58 @@ if (!empty($_SESSION['staff_id'])) {
 $error = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if ($username === '' || $password === '') {
-        $error = "Please enter both username and password.";
+    if ($email === '' || $password === '') {
+        $error = "Please enter both email and password.";
     } else {
         // Prepared statement to prevent SQL injection
-        $stmt = $conn->prepare("SELECT staff_id, name, role, password_hash, active 
-                                FROM staff 
-                                WHERE username = ? LIMIT 1");
-        $stmt->bind_param("s", $username);
+        $stmt = $conn->prepare("
+            SELECT
+                s.staff_id,
+                s.name,
+                r.role_name,
+                s.password_hash,
+                s.is_active
+            FROM staff s
+            JOIN roles r ON r.role_id = s.role_id
+            WHERE s.email = ?
+            LIMIT 1
+        ");
+        $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
         $staff = $result->fetch_assoc();
         $stmt->close();
 
-        if ($staff && (int)$staff['active'] === 1) {
+        if ($staff && (int)$staff['is_active'] === 1) {
             if (password_verify($password, $staff['password_hash'])) {
                 // Correct password
                 $_SESSION['staff_id']   = $staff['staff_id'];
                 $_SESSION['staff_name'] = $staff['name'];
-                $_SESSION['staff_role'] = $staff['role'];
-                $_SESSION['staff_username'] = $username;
+                $_SESSION['staff_role'] = $staff['role_name'];
+                $_SESSION['staff_email'] = $email;
 
-                // Log successful login
-                logLoginAttempt($username, 'staff', true);
+                // Redirect to role-specific dashboard (correct paths)
+                $role = $staff['role_name'];
+                if ($role === 'admin') {
+                    $redirect_url = 'admin_portal/admin_dashboard.php';
+                } elseif ($role === 'receptionist') {
+                    $redirect_url = 'receptionist_portal/receptionist_dashboard.php';
+                } elseif ($role === 'mechanic') {
+                    $redirect_url = 'mechanic_portal/mechanic_dashboard.php';
+                } else {
+                    $redirect_url = 'staff_dashboard.php';
+                }
 
-                // Redirect to role-specific dashboard
-                $redirect_url = match($staff['role']) {
-                    'admin' => 'admin_dashboard.php',
-                    'receptionist' => 'receptionist_dashboard.php',
-                    'mechanic' => 'mechanic_dashboard.php',
-                    default => 'staff_dashboard.php'
-                };
-                
                 header("Location: " . $redirect_url);
                 exit;
             } else {
-                // Log failed login
-                logLoginAttempt($username, 'staff', false, 'Invalid password');
-                $error = "Invalid username or password.";
+                $error = "Invalid email or password.";
             }
         } else {
-            // Log failed login
-            logLoginAttempt($username, 'staff', false, $staff ? 'Account inactive' : 'User not found');
-            $error = "Invalid username or password.";
+            $error = "Invalid email or password.";
         }
     }
 }
@@ -322,19 +327,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 <form method="POST" action="staff_login.php" novalidate>
                     <div class="mb-3">
-                        <label for="username" class="form-label">
-                            <i class="bi bi-person-circle me-1"></i>Username
+                        <label for="email" class="form-label">
+                            <i class="bi bi-person-circle me-1"></i>Email
                         </label>
                         <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" 
-                                   name="username" 
-                                   id="username" 
-                                   class="form-control" 
-                                   placeholder="Enter your username" 
-                                   required 
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input type="email"
+                                   name="email"
+                                   id="email"
+                                   class="form-control"
+                                   placeholder="Enter your email"
+                                   required
                                    autofocus
-                                   value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
+                                   value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
                         </div>
                     </div>
                     
@@ -371,7 +376,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 
                 <div class="text-center">
-                    <a href="customer_login.php" class="btn btn-outline-secondary w-100" style="border-radius: 8px; padding: 0.75rem;">
+                    <a href="customer_portal/customer_login.php" class="btn btn-outline-secondary w-100" style="border-radius: 8px; padding: 0.75rem;">
                         <i class="bi bi-people-fill me-2"></i>Customer Login
                     </a>
                 </div>

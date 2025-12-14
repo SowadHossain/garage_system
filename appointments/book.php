@@ -1,41 +1,47 @@
 <?php
-// appointments/book.php - Book New Appointment
+// appointments/book.php - Customer requests appointment (DB compatible, same UI)
 
 session_start();
-
 require_once __DIR__ . "/../config/db.php";
 
 // Check if customer is logged in
 if (empty($_SESSION['customer_id'])) {
-    header("Location: ../public/customer_login.php");
+    header("Location: /garage_system/public/customer_portal/customer_login.php");
     exit;
 }
 
-$customer_id = $_SESSION['customer_id'];
-$customer_name = $_SESSION['customer_name'];
+$customer_id   = (int)$_SESSION['customer_id'];
+$customer_name = $_SESSION['customer_name'] ?? 'Customer';
 
 $error = "";
-$success = "";
 
-// Fetch customer vehicles
-$vehicles_stmt = $conn->prepare("SELECT vehicle_id, registration_no, brand, model, year, vehicle_type FROM vehicles WHERE customer_id = ? ORDER BY vehicle_id DESC");
+// NEW schema vehicle fields
+$vehicles_stmt = $conn->prepare("
+    SELECT vehicle_id, plate_no, make, model, model_year, vehicle_type
+    FROM vehicles
+    WHERE customer_id = ?
+    ORDER BY vehicle_id DESC
+");
 $vehicles_stmt->bind_param("i", $customer_id);
 $vehicles_stmt->execute();
 $vehicles = $vehicles_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $vehicles_stmt->close();
 
-// Fetch available services
-$services_result = $conn->query("SELECT * FROM services ORDER BY category, name");
-$services = $services_result->fetch_all(MYSQLI_ASSOC);
+// slot mapping (edit times if you want)
+$slotTimes = [
+    1 => '10:00',
+    2 => '12:00',
+    3 => '14:00',
+    4 => '16:00',
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $vehicle_id = (int)($_POST['vehicle_id'] ?? 0);
     $appointment_date = trim($_POST['appointment_date'] ?? '');
-    $appointment_time = trim($_POST['appointment_time'] ?? '');
+    $appointment_time = trim($_POST['appointment_time'] ?? ''); // we will map this into slot
     $problem_description = trim($_POST['problem_description'] ?? '');
-    
-    // Validation
-    if ($vehicle_id === 0 || empty($appointment_date) || empty($appointment_time) || empty($problem_description)) {
+
+    if ($vehicle_id === 0 || $appointment_date === '' || $appointment_time === '' || $problem_description === '') {
         $error = "All fields are required.";
     } else {
         // Verify vehicle belongs to customer
@@ -43,35 +49,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $verify_stmt->bind_param("ii", $vehicle_id, $customer_id);
         $verify_stmt->execute();
         $verify_result = $verify_stmt->get_result();
-        
+        $verify_stmt->close();
+
         if ($verify_result->num_rows === 0) {
             $error = "Invalid vehicle selected.";
-            $verify_stmt->close();
         } else {
-            $verify_stmt->close();
-            
-            // Combine date and time
-            $appointment_datetime = $appointment_date . ' ' . $appointment_time . ':00';
-            
-            // Check if datetime is in the future
-            if (strtotime($appointment_datetime) <= time()) {
-                $error = "Appointment must be scheduled for a future date and time.";
+            // Convert selected time -> slot (closest match)
+            $slot = null;
+            foreach ($slotTimes as $s => $t) {
+                if ($appointment_time === $t) {
+                    $slot = $s;
+                    break;
+                }
+            }
+
+            if ($slot === null) {
+                $error = "Please select a valid slot time (10:00, 12:00, 14:00, 16:00).";
             } else {
-                // Insert appointment
-                $insert_stmt = $conn->prepare("INSERT INTO appointments 
-                    (customer_id, vehicle_id, appointment_datetime, problem_description, status, created_at) 
-                    VALUES (?, ?, ?, ?, 'booked', NOW())");
-                $insert_stmt->bind_param("iiss", $customer_id, $vehicle_id, $appointment_datetime, $problem_description);
-                
-                if ($insert_stmt->execute()) {
-                    $appointment_id = $insert_stmt->insert_id;
-                    $insert_stmt->close();
-                    
-                    header("Location: view_appointments.php?success=1");
-                    exit;
+                // Ensure future date
+                $dt = DateTime::createFromFormat('Y-m-d H:i', $appointment_date . ' ' . ($slotTimes[$slot] ?? '10:00'));
+                if (!$dt) {
+                    $error = "Invalid date/time.";
                 } else {
-                    $error = "Failed to book appointment. Please try again.";
-                    $insert_stmt->close();
+                    $now = new DateTime();
+                    if ($dt <= $now) {
+                        $error = "Appointment must be scheduled for a future date.";
+                    } else {
+                        // Insert: status requested, mechanic_id NULL
+                        $insert_stmt = $conn->prepare("
+                            INSERT INTO appointments
+                                (customer_id, vehicle_id, requested_date, requested_slot, problem_text, status, mechanic_id, created_at)
+                            VALUES
+                                (?, ?, ?, ?, ?, 'requested', NULL, NOW())
+                        ");
+                        $insert_stmt->bind_param("iisis", $customer_id, $vehicle_id, $appointment_date, $slot, $problem_description);
+
+                        if ($insert_stmt->execute()) {
+                            $insert_stmt->close();
+                            header("Location: view_appointments.php?success=1");
+                            exit;
+                        } else {
+                            $error = "Failed to book appointment. Please try again.";
+                            $insert_stmt->close();
+                        }
+                    }
                 }
             }
         }
@@ -242,10 +263,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <nav class="top-nav">
-        <a href="../public/customer_dashboard.php" class="nav-brand">
+        <a href="/garage_system/public/customer_portal/customer_dashboard.php" class="nav-brand">
             <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
         </a>
-        <a href="../public/customer_logout.php" class="btn btn-sm btn-outline-danger">
+        <a href="/garage_system/public/customer_portal/customer_logout.php" class="btn btn-sm btn-outline-danger">
             <i class="bi bi-box-arrow-right"></i>
         </a>
     </nav>
@@ -270,14 +291,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <i class="bi bi-car-front" style="font-size: 4rem; color: #6c757d; opacity: 0.5;"></i>
                 <h3 class="mt-3">No Vehicles Registered</h3>
                 <p class="text-muted mb-4">You need to add a vehicle before booking an appointment.</p>
-                <a href="../vehicles/add.php" class="btn btn-primary-custom">
+                <a href="/garage_system/public/vehicles/add.php" class="btn btn-primary-custom">
                     <i class="bi bi-plus-circle me-2"></i>Add Your First Vehicle
                 </a>
             </div>
         <?php else: ?>
             <div class="info-box">
                 <i class="bi bi-info-circle-fill me-2"></i>
-                <strong>Operating Hours:</strong> Monday - Saturday, 8:00 AM - 6:00 PM
+                <strong>Available Slots:</strong> 10:00, 12:00, 14:00, 16:00 (Slot 1–4)
             </div>
             
             <div class="booking-card">
@@ -289,8 +310,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <select name="vehicle_id" id="vehicle_id" class="form-select" required>
                             <option value="">Choose a vehicle...</option>
                             <?php foreach ($vehicles as $vehicle): ?>
-                                <option value="<?php echo $vehicle['vehicle_id']; ?>">
-                                    <?php echo htmlspecialchars($vehicle['brand'] . ' ' . $vehicle['model'] . ' (' . $vehicle['registration_no'] . ')'); ?>
+                                <option value="<?php echo (int)$vehicle['vehicle_id']; ?>"
+                                    <?php echo ((int)($_POST['vehicle_id'] ?? 0) === (int)$vehicle['vehicle_id']) ? 'selected' : ''; ?>>
+                                    <?php
+                                        $title = trim(($vehicle['make'] ?? '') . ' ' . ($vehicle['model'] ?? ''));
+                                        $plate = $vehicle['plate_no'] ?? '';
+                                        echo htmlspecialchars($title . ($plate ? " ({$plate})" : ""));
+                                    ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -306,6 +332,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    id="appointment_date" 
                                    class="form-control" 
                                    required
+                                   value="<?php echo htmlspecialchars($_POST['appointment_date'] ?? ''); ?>"
                                    min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>">
                         </div>
                         
@@ -313,13 +340,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label for="appointment_time" class="form-label">
                                 <i class="bi bi-clock me-1"></i>Time <span class="required">*</span>
                             </label>
-                            <input type="time" 
-                                   name="appointment_time" 
-                                   id="appointment_time" 
-                                   class="form-control" 
-                                   required
-                                   min="08:00"
-                                   max="18:00">
+                            <select name="appointment_time" id="appointment_time" class="form-select" required>
+                                <option value="">Choose a slot time...</option>
+                                <?php foreach ($slotTimes as $s => $t): ?>
+                                    <option value="<?php echo $t; ?>" <?php echo (($_POST['appointment_time'] ?? '') === $t) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($t); ?> (Slot <?php echo (int)$s; ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                     </div>
                     
@@ -332,7 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                   class="form-control" 
                                   rows="4" 
                                   placeholder="Describe the issue with your vehicle..."
-                                  required></textarea>
+                                  required><?php echo htmlspecialchars($_POST['problem_description'] ?? ''); ?></textarea>
                         <small class="text-muted">Please provide as much detail as possible to help us serve you better.</small>
                     </div>
                     
@@ -340,7 +368,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="submit" class="btn btn-primary-custom">
                             <i class="bi bi-check-circle me-2"></i>Confirm Booking
                         </button>
-                        <a href="../public/customer_dashboard.php" class="btn btn-outline-secondary">
+                        <a href="/garage_system/public/customer_portal/customer_dashboard.php" class="btn btn-outline-secondary">
                             Cancel
                         </a>
                     </div>
@@ -353,19 +381,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
         // Set minimum date to tomorrow
         const dateInput = document.getElementById('appointment_date');
-        const today = new Date();
-        today.setDate(today.getDate() + 1);
-        const minDate = today.toISOString().split('T')[0];
-        dateInput.min = minDate;
-        
-        // Validate time is within business hours
-        document.getElementById('appointment_time').addEventListener('change', function() {
-            const time = this.value;
-            if (time < '08:00' || time > '18:00') {
-                alert('Please select a time between 8:00 AM and 6:00 PM');
-                this.value = '';
-            }
-        });
+        if (dateInput) {
+            const today = new Date();
+            today.setDate(today.getDate() + 1);
+            dateInput.min = today.toISOString().split('T')[0];
+        }
     </script>
 </body>
 </html>
