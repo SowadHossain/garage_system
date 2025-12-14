@@ -23,66 +23,47 @@ function getTableColumns(mysqli $conn, string $table): array {
     }
     return $cols;
 }
+
 function detectColumn(array $cols, array $candidates): string {
     foreach ($candidates as $c) if (in_array($c, $cols, true)) return $c;
     return '';
 }
 
 $errors = [];
-$success = false;
 
 /* --- Detect schema --- */
 $apptCols = getTableColumns($conn, "appointments");
 $vehCols  = getTableColumns($conn, "vehicles");
 
-$apptStatusCol = detectColumn($apptCols, ['status','appointment_status']);
-$apptVehicleCol = in_array('vehicle_id', $apptCols, true) ? 'vehicle_id' : '';
-$apptDateCol = detectColumn($apptCols, [
-    'requested_date',
-    'appointment_date',
-    'date',
-    'appt_date'
-]);
-$apptSlotCol = detectColumn($apptCols, [
-    'requested_slot',
-    'slot',
-    'time_slot'
-]);
-$apptDatetimeCol = detectColumn($apptCols, [
-    'appointment_datetime',
-    'scheduled_at',
-    'schedule_datetime',
-    'date_time',
-    'start_time'
-]);
-$apptProblemCol = detectColumn($apptCols, [
-    'problem_text',
-    'problem_description',
-    'description',
-    'issue',
-    'notes',
-    'complaint'
-]);
-$apptCreatedAtCol = detectColumn($apptCols, ['created_at','requested_at']);
+$apptStatusCol    = detectColumn($apptCols, ['status','appointment_status']);
+$apptVehicleCol   = in_array('vehicle_id', $apptCols, true) ? 'vehicle_id' : '';
+$apptDateCol      = detectColumn($apptCols, ['requested_date','appointment_date','date','appt_date']);
+$apptSlotCol      = detectColumn($apptCols, ['requested_slot','slot','time_slot']);
+$apptDatetimeCol  = detectColumn($apptCols, ['appointment_datetime','scheduled_at','schedule_datetime','date_time','start_time']);
+$apptProblemCol   = detectColumn($apptCols, ['problem_text','problem_description','description','issue','notes','complaint']);
+$apptCreatedAtCol = detectColumn($apptCols, ['created_at','requested_at']); // we will NOT insert it (DB default)
 
-$regCol = detectColumn($vehCols, ['registration_no','registration_number','plate_no','license_plate','reg_no','plate']);
+$regCol   = detectColumn($vehCols, ['registration_no','registration_number','plate_no','license_plate','reg_no','plate']);
 $brandCol = detectColumn($vehCols, ['brand','make']);
 $modelCol = detectColumn($vehCols, ['model']);
 $yearCol  = detectColumn($vehCols, ['year','model_year','vehicle_year']);
 
 /* --- Load vehicles for dropdown --- */
+$vehicles = [];
 $vehicles_stmt = $conn->prepare("SELECT * FROM vehicles WHERE customer_id = ? ORDER BY vehicle_id DESC");
-$vehicles_stmt->bind_param("i", $customer_id);
-$vehicles_stmt->execute();
-$vehicles = $vehicles_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$vehicles_stmt->close();
+if ($vehicles_stmt) {
+    $vehicles_stmt->bind_param("i", $customer_id);
+    $vehicles_stmt->execute();
+    $vehicles = $vehicles_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $vehicles_stmt->close();
+}
 
 /* --- Form defaults --- */
 $form = [
     'vehicle_id' => '',
-    'date' => '',
-    'slot' => '1',
-    'problem' => ''
+    'date'       => '',
+    'slot'       => '1',
+    'problem'    => ''
 ];
 
 // Slot -> time mapping (only used if your schema stores datetime)
@@ -97,24 +78,37 @@ $slotTimes = [
     8 => "17:00:00",
 ];
 
+/**
+ * Decide allowed slot range.
+ * Your init.sql appointments.requested_slot has CHECK (requested_slot BETWEEN 1 AND 4).
+ * So if the detected slot column is exactly "requested_slot", we only offer 1..4.
+ * Otherwise (other schemas), keep 1..8.
+ */
+$maxSlots = 8;
+if ($apptSlotCol === 'requested_slot') $maxSlots = 4;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $form['vehicle_id'] = trim($_POST['vehicle_id'] ?? '');
-    $form['date'] = trim($_POST['date'] ?? '');
-    $form['slot'] = trim($_POST['slot'] ?? '1');
-    $form['problem'] = trim($_POST['problem'] ?? '');
+    $form['date']       = trim($_POST['date'] ?? '');
+    $form['slot']       = trim($_POST['slot'] ?? '1');
+    $form['problem']    = trim($_POST['problem'] ?? '');
 
-    // Validate vehicle (optional if you allow booking without selecting)
+    // Validate vehicle (only if appointments table has vehicle_id)
     if ($apptVehicleCol) {
         if ($form['vehicle_id'] === '') {
             $errors[] = "Please select a vehicle.";
         } else {
             $vid = (int)$form['vehicle_id'];
             $chk = $conn->prepare("SELECT vehicle_id FROM vehicles WHERE vehicle_id = ? AND customer_id = ? LIMIT 1");
-            $chk->bind_param("ii", $vid, $customer_id);
-            $chk->execute();
-            $ok = $chk->get_result()->num_rows > 0;
-            $chk->close();
-            if (!$ok) $errors[] = "Invalid vehicle selection.";
+            if (!$chk) {
+                $errors[] = "DB error: " . $conn->error;
+            } else {
+                $chk->bind_param("ii", $vid, $customer_id);
+                $chk->execute();
+                $ok = $chk->get_result()->num_rows > 0;
+                $chk->close();
+                if (!$ok) $errors[] = "Invalid vehicle selection.";
+            }
         }
     }
 
@@ -123,85 +117,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Please pick a date.";
     } else {
         $ts = strtotime($form['date']);
-        if ($ts === false) $errors[] = "Invalid date.";
+        if ($ts === false) {
+            $errors[] = "Invalid date.";
+        }
     }
 
     // Validate slot if used
     $slotInt = (int)$form['slot'];
-    if ($apptSlotCol && ($slotInt < 1 || $slotInt > 8)) {
-        $errors[] = "Invalid time slot.";
+    if ($apptSlotCol) {
+        if ($slotInt < 1 || $slotInt > $maxSlots) {
+            $errors[] = "Invalid time slot.";
+        }
     }
 
-    if ($form['problem'] === '' && $apptProblemCol) {
+    // Validate problem if column exists
+    if ($apptProblemCol && $form['problem'] === '') {
         $errors[] = "Please describe the problem briefly.";
     }
 
     if (empty($errors)) {
         // Build dynamic INSERT based on available columns
-        $cols = [];
+        $cols  = [];
         $types = "";
-        $vals = [];
+        $vals  = [];
 
-        // Always
-        $cols[] = "customer_id";
-        $types .= "i";
-        $vals[] = $customer_id;
+        // Always: customer_id
+        $cols[]  = "customer_id";
+        $types  .= "i";
+        $vals[]  = $customer_id;
 
         if ($apptVehicleCol) {
-            $cols[] = "vehicle_id";
-            $types .= "i";
-            $vals[] = (int)$form['vehicle_id'];
+            $cols[]  = "vehicle_id";
+            $types  .= "i";
+            $vals[]  = (int)$form['vehicle_id'];
         }
 
-        // Prefer requested_date if present, else datetime
+        // Prefer date column if present, else datetime column
         if ($apptDateCol) {
-            $cols[] = "`$apptDateCol`";
-            $types .= "s";
-            $vals[] = $form['date'];
+            $cols[]  = "`$apptDateCol`";
+            $types  .= "s";
+            $vals[]  = $form['date'];
         } elseif ($apptDatetimeCol) {
             $time = $slotTimes[$slotInt] ?? "09:00:00";
-            $cols[] = "`$apptDatetimeCol`";
-            $types .= "s";
-            $vals[] = $form['date'] . " " . $time;
+            $cols[]  = "`$apptDatetimeCol`";
+            $types  .= "s";
+            $vals[]  = $form['date'] . " " . $time;
         }
 
         if ($apptSlotCol) {
-            $cols[] = "`$apptSlotCol`";
-            $types .= "i";
-            $vals[] = $slotInt;
+            $cols[]  = "`$apptSlotCol`";
+            $types  .= "i";
+            $vals[]  = $slotInt;
         }
 
         if ($apptProblemCol) {
-            $cols[] = "`$apptProblemCol`";
-            $types .= "s";
-            $vals[] = $form['problem'];
+            $cols[]  = "`$apptProblemCol`";
+            $types  .= "s";
+            $vals[]  = $form['problem'];
         }
 
         if ($apptStatusCol) {
-            $cols[] = "`$apptStatusCol`";
-            $types .= "s";
-            $vals[] = "requested";
+            $cols[]  = "`$apptStatusCol`";
+            $types  .= "s";
+            $vals[]  = "requested";
         }
 
-        if ($apptCreatedAtCol) {
-            $cols[] = "`$apptCreatedAtCol`";
-            // use NOW() directly if available, not a bound param
-        }
+        /**
+         * IMPORTANT FIX:
+         * Do NOT include created_at / requested_at in the INSERT.
+         * Your schema already defaults created_at (CURRENT_TIMESTAMP).
+         * This avoids placeholder/type mismatch and your original array_pop($types) bug.
+         */
 
         $placeholders = array_fill(0, count($cols), "?");
 
-        // If created_at exists, replace its placeholder with NOW()
-        if ($apptCreatedAtCol) {
-            $lastIndex = array_key_last($cols);
-            if ($cols[$lastIndex] === "`$apptCreatedAtCol`") {
-                $placeholders[$lastIndex] = "NOW()";
-                // remove one ? from binding
-                array_pop($types);
-                array_pop($vals);
-            }
-        }
+        $sql = "INSERT INTO appointments (" . implode(",", $cols) . ")
+                VALUES (" . implode(",", $placeholders) . ")";
 
-        $sql = "INSERT INTO appointments (" . implode(",", $cols) . ") VALUES (" . implode(",", $placeholders) . ")";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             $errors[] = "DB error: " . $conn->error;
@@ -284,7 +276,8 @@ function vehicleLabel(array $v, string $brandCol, string $modelCol, string $year
             <select name="vehicle_id" class="form-select" required>
               <option value="">-- Select Vehicle --</option>
               <?php foreach ($vehicles as $v): ?>
-                <option value="<?php echo (int)$v['vehicle_id']; ?>" <?php echo ((string)$form['vehicle_id'] === (string)$v['vehicle_id']) ? 'selected' : ''; ?>>
+                <option value="<?php echo (int)$v['vehicle_id']; ?>"
+                  <?php echo ((string)$form['vehicle_id'] === (string)$v['vehicle_id']) ? 'selected' : ''; ?>>
                   <?php echo h(vehicleLabel($v, $brandCol, $modelCol, $yearCol, $regCol)); ?>
                 </option>
               <?php endforeach; ?>
@@ -305,13 +298,17 @@ function vehicleLabel(array $v, string $brandCol, string $modelCol, string $year
           <div class="col-md-6">
             <label class="form-label fw-semibold">Time Slot</label>
             <select name="slot" class="form-select" <?php echo $apptSlotCol ? 'required' : ''; ?>>
-              <?php for ($i=1;$i<=8;$i++): ?>
+              <?php for ($i=1; $i <= $maxSlots; $i++): ?>
                 <option value="<?php echo $i; ?>" <?php echo ((int)$form['slot'] === $i) ? 'selected' : ''; ?>>
                   Slot <?php echo $i; ?>
                 </option>
               <?php endfor; ?>
             </select>
-            <div class="form-text">Slot numbers are used in your DB schema. We keep it simple.</div>
+            <?php if ($apptSlotCol === 'requested_slot'): ?>
+              <div class="form-text">Your DB supports slots 1 to 4.</div>
+            <?php else: ?>
+              <div class="form-text">Slot numbers are used in your DB schema. We keep it simple.</div>
+            <?php endif; ?>
           </div>
         </div>
 

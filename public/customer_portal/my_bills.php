@@ -26,16 +26,15 @@ function detectColumn(array $cols, array $candidates): string {
 
 $bCols = getTableColumns($conn, "bills");
 
-$idCol = detectColumn($bCols, ['bill_id','id']);
-$totalCol = detectColumn($bCols, ['total','total_amount','grand_total','amount','total_price']);
-$dateCol  = detectColumn($bCols, ['bill_date','created_at','issued_at','date']);
+$idCol     = detectColumn($bCols, ['bill_id','id']);
+$totalCol  = detectColumn($bCols, ['total','total_amount','grand_total','amount','total_price']);
+$dateCol   = detectColumn($bCols, ['bill_date','created_at','issued_at','date']);
 $statusCol = detectColumn($bCols, ['payment_status','status']);
 $methodCol = detectColumn($bCols, ['payment_method','method']);
 
-// Select with aliases so UI consistent
-$selId = $idCol ? "b.`$idCol` AS bill_id," : "NULL AS bill_id,";
-$selTotal = $totalCol ? "b.`$totalCol` AS total_amount," : "0 AS total_amount,";
-$selDate = $dateCol ? "b.`$dateCol` AS bill_date," : "NULL AS bill_date,";
+$selId     = $idCol ? "b.`$idCol` AS bill_id," : "NULL AS bill_id,";
+$selTotal  = $totalCol ? "b.`$totalCol` AS total_amount," : "0 AS total_amount,";
+$selDate   = $dateCol ? "b.`$dateCol` AS bill_date," : "NULL AS bill_date,";
 $selStatus = $statusCol ? "b.`$statusCol` AS payment_status," : "NULL AS payment_status,";
 $selMethod = $methodCol ? "b.`$methodCol` AS payment_method," : "NULL AS payment_method,";
 
@@ -99,7 +98,7 @@ function statusBadge($s): string {
   <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <div>
       <h3 class="mb-1"><i class="bi bi-receipt-cutoff me-2"></i>My Bills</h3>
-      <div class="text-muted">All your invoices and payment status.</div>
+      <div class="text-muted">View invoice details and print anytime.</div>
     </div>
     <a class="btn btn-outline-secondary" href="customer_dashboard.php"><i class="bi bi-arrow-left me-1"></i>Back</a>
   </div>
@@ -121,12 +120,14 @@ function statusBadge($s): string {
                 <th class="text-end">Total</th>
                 <th>Status</th>
                 <th>Method</th>
+                <th class="text-end">Action</th>
               </tr>
             </thead>
             <tbody>
               <?php foreach ($bills as $b): ?>
+                <?php $billId = (int)($b['bill_id'] ?? 0); ?>
                 <tr>
-                  <td class="fw-semibold"><?php echo h($b['bill_id'] ?? '-'); ?></td>
+                  <td class="fw-semibold"><?php echo $billId ? h($billId) : '-'; ?></td>
                   <td>
                     <?php
                       $d = $b['bill_date'] ?? '';
@@ -134,8 +135,21 @@ function statusBadge($s): string {
                     ?>
                   </td>
                   <td class="text-end fw-bold">৳<?php echo number_format((float)($b['total_amount'] ?? 0), 2); ?></td>
-                  <td><span class="badge bg-<?php echo h(statusBadge($b['payment_status'] ?? '')); ?>"><?php echo h(ucfirst((string)($b['payment_status'] ?? 'unknown'))); ?></span></td>
+                  <td>
+                    <span class="badge bg-<?php echo h(statusBadge($b['payment_status'] ?? '')); ?>">
+                      <?php echo h(ucfirst((string)($b['payment_status'] ?? 'unknown'))); ?>
+                    </span>
+                  </td>
                   <td><?php echo !empty($b['payment_method']) ? h($b['payment_method']) : '<span class="text-muted">-</span>'; ?></td>
+                  <td class="text-end">
+                    <?php if ($billId > 0): ?>
+                      <a class="btn btn-sm btn-outline-primary" href="bill_details.php?id=<?php echo $billId; ?>">
+                        <i class="bi bi-eye me-1"></i>View / Print
+                      </a>
+                    <?php else: ?>
+                      <span class="text-muted">-</span>
+                    <?php endif; ?>
+                  </td>
                 </tr>
               <?php endforeach; ?>
             </tbody>

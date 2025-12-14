@@ -221,7 +221,7 @@ ui_header_admin("Admin Dashboard", $staff_name);
             </div>
         </a>
 
-        <a href="../customers/list.php" class="action-btn">
+        <a href="customers.php" class="action-btn">
             <i class="bi bi-search"></i>
             <div class="action-text">
                 <div class="action-title">Search Customers</div>
@@ -229,7 +229,7 @@ ui_header_admin("Admin Dashboard", $staff_name);
             </div>
         </a>
 
-        <a href="../vehicles/list.php" class="action-btn">
+        <a href="vehicles.php" class="action-btn">
             <i class="bi bi-car-front"></i>
             <div class="action-text">
                 <div class="action-title">Vehicle Registry</div>
@@ -245,7 +245,7 @@ ui_header_admin("Admin Dashboard", $staff_name);
             </div>
         </a>
 
-        <a href="../appointments/list.php" class="action-btn">
+        <a href="appointments.php" class="action-btn">
             <i class="bi bi-calendar-check"></i>
             <div class="action-text">
                 <div class="action-title">Appointments</div>
@@ -253,7 +253,7 @@ ui_header_admin("Admin Dashboard", $staff_name);
             </div>
         </a>
 
-        <a href="../jobs/list.php" class="action-btn">
+        <a href="jobs.php" class="action-btn">
             <i class="bi bi-clipboard-check"></i>
             <div class="action-text">
                 <div class="action-title">Job Management</div>
@@ -261,7 +261,7 @@ ui_header_admin("Admin Dashboard", $staff_name);
             </div>
         </a>
 
-        <a href="../bills/list.php" class="action-btn">
+        <a href="bills.php" class="action-btn">
             <i class="bi bi-receipt"></i>
             <div class="action-text">
                 <div class="action-title">Billing</div>
