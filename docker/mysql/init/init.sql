@@ -224,3 +224,54 @@ CREATE TABLE bill_items (
   CONSTRAINT fk_bi_bill FOREIGN KEY (bill_id) REFERENCES bills(bill_id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- View: Customer Summary (for receptionist dashboard)
+CREATE OR REPLACE VIEW view_customer_summary AS
+SELECT
+    c.customer_id,
+    c.name,
+    c.email,
+    c.phone,
+
+    /* Vehicles */
+    COUNT(DISTINCT v.vehicle_id) AS vehicle_count,
+
+    /* Appointments */
+    COUNT(DISTINCT a.appointment_id) AS appointment_count,
+    SUM(a.status = 'completed') AS completed_appointments,
+    MAX(a.requested_date) AS last_appointment_date,
+
+    /* Billing */
+    COALESCE(
+        SUM(
+            CASE 
+                WHEN b.payment_status = 'paid' 
+                THEN b.total 
+                ELSE 0 
+            END
+        ), 0
+    ) AS total_spent,
+
+    AVG(
+        CASE 
+            WHEN b.payment_status = 'paid' 
+            THEN b.total 
+            ELSE NULL 
+        END
+    ) AS avg_bill_amount
+
+FROM customers c
+LEFT JOIN vehicles v
+    ON v.customer_id = c.customer_id
+LEFT JOIN appointments a
+    ON a.customer_id = c.customer_id
+LEFT JOIN jobs j
+    ON j.appointment_id = a.appointment_id
+LEFT JOIN bills b
+    ON b.job_id = j.job_id
+
+GROUP BY
+    c.customer_id,
+    c.name,
+    c.email,
+    c.phone;

@@ -1,10 +1,10 @@
 <?php
-// jobs/add_services.php - Add services to a job (Mechanic)
+// public/mechanic_portal/add_services.php - Add services to a job (Mechanic)
 session_start();
-require_once __DIR__ . "/../config/db.php";
+require_once __DIR__ . "/../../config/db.php";
 
 if (empty($_SESSION['staff_id']) || ($_SESSION['staff_role'] ?? '') !== 'mechanic') {
-    header("Location: ../public/staff_login.php");
+    header("Location: staff_login.php");
     exit;
 }
 
@@ -16,7 +16,11 @@ $flash = "";
 
 // Fetch my jobs for dropdown
 $jobs_stmt = $conn->prepare("
-  SELECT j.job_id, j.status, a.requested_date, a.requested_slot, c.name AS customer_name, v.plate_no, v.make, v.model, v.year AS model_year
+  SELECT 
+    j.job_id, j.status, j.created_at,
+    a.requested_date, a.requested_slot,
+    c.name AS customer_name,
+    v.plate_no, v.make, v.model, v.year AS model_year
   FROM jobs j
   JOIN appointments a ON j.appointment_id=a.appointment_id
   JOIN customers c ON a.customer_id=c.customer_id
@@ -36,8 +40,8 @@ $svc_stmt->execute();
 $services = $svc_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $svc_stmt->close();
 
-// Handle add/update line
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['service_id'], $_POST['qty'])) {
+// Add / update service line
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['service_id'], $_POST['qty']) && !isset($_POST['delete_job_service_id'])) {
     $job_id = (int)($_POST['job_id'] ?? 0);
     $service_id = (int)($_POST['service_id'] ?? 0);
     $qty = (int)($_POST['qty'] ?? 1);
@@ -56,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['service_id'], $_POST[
         if (!$ok) {
             $flash = "Not allowed.";
         } else {
-            // If unit_price not provided, use service base_price
+            // Auto unit price from service base price if empty/0
             if ($unit_price <= 0) {
                 $bp = $conn->prepare("SELECT base_price FROM services WHERE service_id = ? LIMIT 1");
                 $bp->bind_param("i", $service_id);
@@ -66,8 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['service_id'], $_POST[
                 $unit_price = (float)($row['base_price'] ?? 0);
             }
 
-            // Upsert by (job_id, service_id) if you want uniqueness
-            // Since schema doesn't enforce unique, we will merge manually
+            // Merge line if already exists for this job/service
             $find = $conn->prepare("SELECT job_service_id, qty FROM job_services WHERE job_id=? AND service_id=? LIMIT 1");
             $find->bind_param("ii", $job_id, $service_id);
             $find->execute();
@@ -92,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['service_id'], $_POST[
     }
 }
 
-// Handle delete line
+// Delete line
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_job_service_id'])) {
     $jsid = (int)$_POST['delete_job_service_id'];
 
@@ -119,12 +122,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_job_service_id
     }
 }
 
-// If job selected, load its lines
+// Load selected job meta + lines
 $lines = [];
 $job_meta = null;
+
 if ($job_id > 0) {
     $meta = $conn->prepare("
-      SELECT j.job_id, j.status, a.appointment_id, a.requested_date, a.requested_slot, c.name AS customer_name, v.plate_no, v.make, v.model, v.year AS model_year
+      SELECT 
+        j.job_id, j.status,
+        a.appointment_id, a.requested_date, a.requested_slot,
+        c.name AS customer_name, c.phone,
+        v.plate_no, v.make, v.model, v.year AS model_year
       FROM jobs j
       JOIN appointments a ON j.appointment_id=a.appointment_id
       JOIN customers c ON a.customer_id=c.customer_id
@@ -139,7 +147,7 @@ if ($job_id > 0) {
 
     if ($job_meta) {
         $ls = $conn->prepare("
-          SELECT js.job_service_id, s.name, js.qty, js.unit_price, js.line_total
+          SELECT js.job_service_id, s.name, js.qty, js.unit_price, js.line_total, js.created_at
           FROM job_services js
           JOIN services s ON js.service_id=s.service_id
           WHERE js.job_id=?
@@ -164,13 +172,13 @@ foreach ($lines as $ln) $subtotal += (float)$ln['line_total'];
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
   <style>
-    :root { --primary-color:#f59e0b; --accent-color:#ea580c; --light-bg:#fffbeb; }
+    :root{--primary-color:#f59e0b;--accent-color:#ea580c;--light-bg:#fffbeb}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--light-bg);margin:0}
     .top-nav{background:linear-gradient(135deg,var(--accent-color),var(--primary-color));color:#fff;padding:1rem 2rem;box-shadow:0 2px 10px rgba(0,0,0,.1)}
     .top-nav-content{display:flex;justify-content:space-between;align-items:center;max-width:1400px;margin:0 auto}
     .logo{font-size:1.3rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
-    .logout-btn{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:.5rem 1rem;border-radius:8px;text-decoration:none}
-    .logout-btn:hover{background:rgba(255,255,255,.3);color:#fff}
+    .btnchip{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:.5rem 1rem;border-radius:8px;text-decoration:none}
+    .btnchip:hover{background:rgba(255,255,255,.3);color:#fff}
     .container-main{max-width:1100px;margin:1.5rem auto;padding:0 2rem}
     .cardish{background:#fff;border-radius:12px;padding:1.25rem;box-shadow:0 2px 8px rgba(0,0,0,.06)}
     .muted{color:#6b7280}
@@ -181,8 +189,9 @@ foreach ($lines as $ln) $subtotal += (float)$ln['line_total'];
     <div class="top-nav-content">
       <div class="logo"><i class="bi bi-plus-circle"></i> Add Services</div>
       <div class="d-flex align-items-center gap-2">
-        <a class="logout-btn" href="../public/mechanic_portal/mechanic_dashboard.php"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
-        <a class="logout-btn" href="../jobs/list.php"><i class="bi bi-list-task me-1"></i>Jobs</a>
+        <a class="btnchip" href="mechanic_dashboard.php"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+        <a class="btnchip" href="jobs_list.php"><i class="bi bi-list-task me-1"></i>Jobs</a>
+        <a class="btnchip" href="../logout.php"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
       </div>
     </div>
   </nav>
@@ -209,16 +218,19 @@ foreach ($lines as $ln) $subtotal += (float)$ln['line_total'];
           </select>
         </div>
         <div class="col-md-2 d-grid">
-          <a class="btn btn-outline-warning" href="../jobs/list.php"><i class="bi bi-arrow-left me-1"></i>Back</a>
+          <a class="btn btn-outline-warning" href="jobs_list.php"><i class="bi bi-arrow-left me-1"></i>Back</a>
         </div>
       </form>
+
       <?php if ($job_meta): ?>
         <div class="mt-3 muted">
-          <div><strong>Customer:</strong> <?php echo htmlspecialchars($job_meta['customer_name']); ?></div>
+          <div><strong>Customer:</strong> <?php echo htmlspecialchars($job_meta['customer_name']); ?> (<?php echo htmlspecialchars($job_meta['phone'] ?? ''); ?>)</div>
           <div><strong>Vehicle:</strong>
             <?php echo htmlspecialchars(trim(($job_meta['make'] ?? '').' '.($job_meta['model'] ?? ''))); ?>
-            <?php if (!empty($job_meta['plate_no'])): ?> (<?php echo htmlspecialchars($job_meta['plate_no']); ?>)<?php endif; ?>
+            <?php if (!empty($job_meta['model_year'])): ?> (<?php echo (int)$job_meta['model_year']; ?>)<?php endif; ?>
+            <?php if (!empty($job_meta['plate_no'])): ?> - <?php echo htmlspecialchars($job_meta['plate_no']); ?><?php endif; ?>
           </div>
+          <div><strong>Appointment:</strong> <?php echo htmlspecialchars(date('M d, Y', strtotime($job_meta['requested_date']))); ?> (Slot <?php echo (int)$job_meta['requested_slot']; ?>)</div>
         </div>
       <?php endif; ?>
     </div>
@@ -258,7 +270,7 @@ foreach ($lines as $ln) $subtotal += (float)$ln['line_total'];
             <button class="btn btn-warning fw-semibold"><i class="bi bi-plus-lg me-1"></i>Add</button>
           </div>
         </form>
-        <div class="muted mt-2">Tip: leave Unit Price empty to use the service base price.</div>
+        <div class="muted mt-2">Leave Unit Price empty to use the service base price.</div>
       </div>
 
       <div class="cardish">
@@ -303,14 +315,11 @@ foreach ($lines as $ln) $subtotal += (float)$ln['line_total'];
         <?php endif; ?>
 
         <div class="mt-3 d-flex gap-2">
-          <a class="btn btn-outline-warning" href="../jobs/list.php"><i class="bi bi-list-task me-1"></i>Back to Jobs</a>
-          <a class="btn btn-warning fw-semibold" href="../bills/generate.php?job_id=<?php echo (int)$job_id; ?>">
-            <i class="bi bi-receipt-cutoff me-1"></i>Generate Bill
-          </a>
+          <a class="btn btn-outline-warning" href="jobs_list.php"><i class="bi bi-list-task me-1"></i>Back to Jobs</a>
         </div>
 
         <div class="muted mt-2">
-          Note: Billing uses your existing `bills/generate.php` route. If that page is missing/broken, tell me and I’ll build it next.
+          Billing is handled by your existing bills pages. If your bill flow is missing/broken, paste it and I’ll fix it next.
         </div>
       </div>
     <?php endif; ?>

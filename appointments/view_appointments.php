@@ -33,7 +33,7 @@ $appointments_stmt = $conn->prepare("
         v.plate_no,
         v.make,
         v.model,
-        v.model_year
+        v.year AS model_year
     FROM appointments a
     LEFT JOIN vehicles v ON a.vehicle_id = v.vehicle_id
     WHERE a.customer_id = ?

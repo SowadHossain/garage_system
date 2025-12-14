@@ -1,11 +1,11 @@
 <?php
 session_start();
-require_once __DIR__ . "/../config/db.php";
-require_once __DIR__ . "/../includes/role_check.php";
+require_once __DIR__ . "/../../config/db.php";
+require_once __DIR__ . "/../../includes/role_check.php";
 
 // Check if user is admin
-if (!isset($_SESSION['staff_id']) || $_SESSION['staff_role'] !== 'admin') {
-    header('Location: staff_login.php');
+if (!isset($_SESSION['staff_id']) || ($_SESSION['staff_role'] ?? '') !== 'admin') {
+    header('Location: ../staff_login.php'); // FIXED path
     exit;
 }
 
@@ -13,54 +13,47 @@ $errors = [];
 $success = false;
 $form_data = [
     'name' => '',
-    'username' => '',
+    'username' => '', // kept for UI only (NOT saved in DB)
     'email' => '',
     'role' => 'receptionist',
     'password' => ''
 ];
 
 $page_title = 'Add New Staff Member';
-require_once __DIR__ . "/../includes/header.php";
+require_once __DIR__ . "/../../includes/header.php";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get and sanitize input
     $form_data['name'] = isset($_POST['name']) ? trim($_POST['name']) : '';
-    $form_data['username'] = isset($_POST['username']) ? trim($_POST['username']) : '';
-    $form_data['email'] = isset($_POST['email']) ? trim($_POST['email']) : '';
+    $form_data['username'] = isset($_POST['username']) ? trim($_POST['username']) : ''; // UI only
+    $form_data['email'] = isset($_POST['email']) ? strtolower(trim($_POST['email'])) : '';
     $form_data['role'] = isset($_POST['role']) ? trim($_POST['role']) : 'receptionist';
-    $form_data['password'] = isset($_POST['password']) ? $_POST['password'] : '';
-    $password_confirm = isset($_POST['password_confirm']) ? $_POST['password_confirm'] : '';
-    
+    $form_data['password'] = isset($_POST['password']) ? (string)$_POST['password'] : '';
+    $password_confirm = isset($_POST['password_confirm']) ? (string)$_POST['password_confirm'] : '';
+
     // Validation
     if (empty($form_data['name'])) {
         $errors[] = 'Staff name is required.';
     } elseif (strlen($form_data['name']) > 150) {
         $errors[] = 'Staff name must not exceed 150 characters.';
     }
-    
+
+    // Username validation stays (because your UI has it), but NO DB checks, NO insert
     if (empty($form_data['username'])) {
         $errors[] = 'Username is required.';
     } elseif (strlen($form_data['username']) < 3) {
         $errors[] = 'Username must be at least 3 characters.';
     } elseif (!preg_match('/^[a-zA-Z0-9_-]+$/', $form_data['username'])) {
         $errors[] = 'Username can only contain letters, numbers, underscores, and hyphens.';
-    } else {
-        // Check if username is unique
-        $check_username = $conn->prepare("SELECT staff_id FROM staff WHERE username = ?");
-        $check_username->bind_param("s", $form_data['username']);
-        $check_username->execute();
-        if ($check_username->get_result()->num_rows > 0) {
-            $errors[] = 'This username is already taken.';
-        }
-        $check_username->close();
     }
-    
+
+    // Email validation (optional in your UI)
     if (!empty($form_data['email'])) {
         if (!filter_var($form_data['email'], FILTER_VALIDATE_EMAIL)) {
             $errors[] = 'Please enter a valid email address.';
         } else {
             // Check if email is unique
-            $check_email = $conn->prepare("SELECT staff_id FROM staff WHERE email = ? AND email != ''");
+            $check_email = $conn->prepare("SELECT staff_id FROM staff WHERE email = ? AND email != '' LIMIT 1");
             $check_email->bind_param("s", $form_data['email']);
             $check_email->execute();
             if ($check_email->get_result()->num_rows > 0) {
@@ -69,60 +62,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $check_email->close();
         }
     }
-    
-    if (!in_array($form_data['role'], ['admin', 'receptionist', 'mechanic'])) {
+
+    if (!in_array($form_data['role'], ['admin', 'receptionist', 'mechanic'], true)) {
         $errors[] = 'Invalid role selected.';
     }
-    
+
     if (empty($form_data['password'])) {
         $errors[] = 'Password is required.';
     } elseif (strlen($form_data['password']) < 6) {
         $errors[] = 'Password must be at least 6 characters.';
     }
-    
+
     if ($form_data['password'] !== $password_confirm) {
         $errors[] = 'Passwords do not match.';
     }
-    
+
     // If no errors, insert into database
     if (empty($errors)) {
-        $password_hash = password_hash($form_data['password'], PASSWORD_BCRYPT);
-        
-        $insert_sql = "INSERT INTO staff (name, username, email, role, password_hash, is_email_verified, active, created_at) 
-                       VALUES (?, ?, ?, ?, ?, 0, 1, NOW())";
-        $stmt = $conn->prepare($insert_sql);
-        
-        if ($stmt) {
-            $stmt->bind_param(
-                "sssss",
-                $form_data['name'],
-                $form_data['username'],
-                $form_data['email'],
-                $form_data['role'],
-                $password_hash
-            );
-            
-            if ($stmt->execute()) {
-                // Log activity
-                require_once __DIR__ . "/../includes/activity_logger.php";
-                logActivity(
-                    'staff',
-                    $_SESSION['staff_id'],
-                    'create',
-                    'staff',
-                    $stmt->insert_id,
-                    null,
-                    ['name' => $form_data['name'], 'username' => $form_data['username'], 'role' => $form_data['role']]
-                );
-                
-                header("Location: admin/manage_staff.php?success=Staff%20member%20added%20successfully");
-                exit;
-            } else {
-                $errors[] = 'Error adding staff: ' . $conn->error;
-            }
-            $stmt->close();
+        // Map role_name -> role_id
+        $role_id = null;
+        $role_stmt = $conn->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
+        $role_stmt->bind_param("s", $form_data['role']);
+        $role_stmt->execute();
+        $role_row = $role_stmt->get_result()->fetch_assoc();
+        $role_stmt->close();
+
+        if (!$role_row) {
+            $errors[] = 'Invalid role selected (role not found in DB).';
         } else {
-            $errors[] = 'Database error: ' . $conn->error;
+            $role_id = (int)$role_row['role_id'];
+            $password_hash = password_hash($form_data['password'], PASSWORD_BCRYPT);
+
+            // NOTE: staff table does NOT have username/role columns, it uses role_id
+            // Also: your form has no phone field, so we store empty string.
+            $phone = '';
+
+            $insert_sql = "
+                INSERT INTO staff (role_id, name, email, phone, password_hash, is_active, created_at)
+                VALUES (?, ?, ?, ?, ?, 1, NOW())
+            ";
+            $stmt = $conn->prepare($insert_sql);
+
+            if ($stmt) {
+                $stmt->bind_param(
+                    "issss",
+                    $role_id,
+                    $form_data['name'],
+                    $form_data['email'],
+                    $phone,
+                    $password_hash
+                );
+
+                if ($stmt->execute()) {
+
+                    header("Location: manage_staff.php?success=Staff%20member%20added%20successfully");
+                    exit;
+                } else {
+                    $errors[] = 'Error adding staff: ' . $stmt->error;
+                }
+                $stmt->close();
+            } else {
+                $errors[] = 'Database error: ' . $conn->error;
+            }
         }
     }
 }
@@ -133,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="admin_dashboard.php">Admin Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="admin/manage_staff.php">Manage Staff</a></li>
+            <li class="breadcrumb-item"><a href="manage_staff.php">Manage Staff</a></li>
             <li class="breadcrumb-item active">Add New Staff</li>
         </ol>
     </nav>
@@ -175,10 +176,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label for="name" class="form-label fw-bold">
                                 Full Name <span class="text-danger">*</span>
                             </label>
-                            <input 
-                                type="text" 
-                                class="form-control form-control-lg" 
-                                id="name" 
+                            <input
+                                type="text"
+                                class="form-control form-control-lg"
+                                id="name"
                                 name="name"
                                 value="<?php echo htmlspecialchars($form_data['name']); ?>"
                                 placeholder="e.g., John Mechanic"
@@ -194,17 +195,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label for="username" class="form-label fw-bold">
                                 Username <span class="text-danger">*</span>
                             </label>
-                            <input 
-                                type="text" 
-                                class="form-control form-control-lg" 
-                                id="username" 
+                            <input
+                                type="text"
+                                class="form-control form-control-lg"
+                                id="username"
                                 name="username"
                                 value="<?php echo htmlspecialchars($form_data['username']); ?>"
                                 placeholder="e.g., john_mechanic"
                                 required
                             >
                             <small class="form-text text-muted">
-                                <i class="bi bi-info-circle me-1"></i>Min 3 characters, letters/numbers/underscore only, must be unique
+                                <i class="bi bi-info-circle me-1"></i>Min 3 characters, letters/numbers/underscore only
                             </small>
                         </div>
 
@@ -213,10 +214,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label for="email" class="form-label fw-bold">
                                 Email Address
                             </label>
-                            <input 
-                                type="email" 
-                                class="form-control form-control-lg" 
-                                id="email" 
+                            <input
+                                type="email"
+                                class="form-control form-control-lg"
+                                id="email"
                                 name="email"
                                 value="<?php echo htmlspecialchars($form_data['email']); ?>"
                                 placeholder="e.g., john@example.com"
@@ -255,10 +256,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label for="password" class="form-label fw-bold">
                                 Password <span class="text-danger">*</span>
                             </label>
-                            <input 
-                                type="password" 
-                                class="form-control form-control-lg" 
-                                id="password" 
+                            <input
+                                type="password"
+                                class="form-control form-control-lg"
+                                id="password"
                                 name="password"
                                 placeholder="Enter secure password"
                                 required
@@ -273,10 +274,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label for="password_confirm" class="form-label fw-bold">
                                 Confirm Password <span class="text-danger">*</span>
                             </label>
-                            <input 
-                                type="password" 
-                                class="form-control form-control-lg" 
-                                id="password_confirm" 
+                            <input
+                                type="password"
+                                class="form-control form-control-lg"
+                                id="password_confirm"
                                 name="password_confirm"
                                 placeholder="Re-enter password"
                                 required
@@ -288,14 +289,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <!-- Buttons -->
                         <div class="d-flex gap-2 pt-3">
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 class="btn btn-primary btn-lg"
                             >
                                 <i class="bi bi-check-circle me-2"></i>Create Staff Account
                             </button>
-                            <a 
-                                href="admin/manage_staff.php" 
+                            <a
+                                href="manage_staff.php"
                                 class="btn btn-secondary btn-lg"
                             >
                                 <i class="bi bi-x-circle me-2"></i>Cancel
@@ -359,7 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="card-body">
                     <small class="text-muted">
-                        Passwords are hashed securely using bcrypt. Staff should change their password after first login. 
+                        Passwords are hashed securely using bcrypt. Staff should change their password after first login.
                         Admin accounts should have strong passwords.
                     </small>
                 </div>
@@ -368,4 +369,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </div>
 
-<?php require_once __DIR__ . "/../includes/footer.php"; ?>
+<?php require_once __DIR__ . "/../../includes/footer.php"; ?>

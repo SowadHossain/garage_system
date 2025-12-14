@@ -98,10 +98,6 @@ ON DUPLICATE KEY UPDATE
 
 -- ----------------------------
 -- Appointments (fixed IDs)
--- Flow examples:
--- 5000: requested (no mechanic yet)
--- 5001: booked (assigned to mechanic)
--- 5002: completed with job + bill paid
 -- ----------------------------
 
 -- Appointment 5000: REQUESTED
@@ -182,18 +178,18 @@ ON DUPLICATE KEY UPDATE
   mechanic_id = VALUES(mechanic_id),
   status = VALUES(status);
 
+-- ----------------------------
 -- Job services (mechanic adds performed services)
+-- IMPORTANT: make idempotent (avoid duplicates)
+-- ----------------------------
+DELETE FROM job_services WHERE job_id = 6000;
+
 INSERT INTO job_services (job_id, service_id, qty, unit_price) VALUES
 (6000, 4005, 1, 1000.00), -- General Diagnostics
-(6000, 4003, 1,  500.00)  -- Battery Check
-ON DUPLICATE KEY UPDATE
-  qty = VALUES(qty),
-  unit_price = VALUES(unit_price);
+(6000, 4003, 1,  500.00); -- Battery Check
 
 -- ----------------------------
 -- Bill for job 6000 (fixed ID)
--- Mechanic generates bill -> unpaid
--- Receptionist marks paid
 -- ----------------------------
 
 -- Compute totals from job_services
@@ -218,13 +214,15 @@ ON DUPLICATE KEY UPDATE
   total = VALUES(total),
   payment_status = VALUES(payment_status);
 
--- Copy bill items from job services for invoice display
+-- ----------------------------
+-- Bill items (invoice display)
+-- IMPORTANT: make idempotent (avoid duplicates)
+-- ----------------------------
+DELETE FROM bill_items WHERE bill_id = 7000;
+
 INSERT INTO bill_items (bill_id, description, qty, unit_price) VALUES
 (7000, 'General Diagnostics', 1, 1000.00),
-(7000, 'Battery Check',       1,  500.00)
-ON DUPLICATE KEY UPDATE
-  qty = VALUES(qty),
-  unit_price = VALUES(unit_price);
+(7000, 'Battery Check',       1,  500.00);
 
 -- Receptionist marks payment (demo)
 UPDATE bills

@@ -371,48 +371,13 @@ $stmt->close();
                 Add New Vehicle
             </a>
         </div>
-
-        <!-- Search Form (demonstrates LIKE pattern matching) -->
-        <div class="card mb-3">
-            <div class="card-body">
-                <form method="GET" action="" class="row g-3">
-                    <div class="col-md-9">
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="text" 
-                                   class="form-control" 
-                                   name="search" 
-                                   value="<?php echo htmlspecialchars($search); ?>" 
-                                   placeholder="Search by registration, brand, model, or type...">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="bi bi-search me-1"></i>Search
-                        </button>
-                    </div>
-                    <?php if (!empty($search)): ?>
-                        <div class="col-12">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted">
-                                    Found <strong><?php echo count($vehicles); ?></strong> vehicle(s) matching "<strong><?php echo htmlspecialchars($search); ?></strong>"
-                                </span>
-                                <a href="list.php" class="btn btn-sm btn-outline-secondary">
-                                    <i class="bi bi-x-circle me-1"></i>Clear Search
-                                </a>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-                </form>
-            </div>
-        </div>
         
         <?php if (empty($vehicles)): ?>
             <div class="empty-state">
                 <div class="empty-icon">
                     <i class="bi bi-car-front"></i>
                 </div>
-                <h2 class="empty-title"><?php echo !empty($search) ? 'No Vehicles Found' : 'No Vehicles Yet'; ?></h2>
+                <h2 class="empty-title">No Vehicles Yet</h2>
                 <p class="empty-text">You haven't registered any vehicles yet. Add your first vehicle to get started.</p>
                 <a href="add.php" class="btn btn-primary btn-lg">
                     <i class="bi bi-plus-circle me-2"></i>Add Your First Vehicle
